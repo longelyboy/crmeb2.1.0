@@ -28,10 +28,18 @@ class BaseClient extends AbstractAPI
     const KEY_LENGTH_BYTE = 32;
     const AUTH_TAG_LENGTH_BYTE = 16;
 
+    protected $isService = true;
+
     public function __construct(AccessToken $accessToken, $app)
     {
         parent::__construct($accessToken);
         $this->app = $app;
+    }
+
+    public function setServiceStatus($val)
+    {
+        $this->isService = $val;
+        return $this;
     }
 
 
@@ -104,7 +112,7 @@ class BaseClient extends AbstractAPI
         ];
         $options['headers'] = array_merge($headers, ($options['headers'] ?? []));
 
-        if ($serial) $options['headers']['Wechatpay-Serial'] = $this->app->certficates->get()['serial_no'];
+        if ($serial) $options['headers']['Wechatpay-Serial'] = $this->app->certficates->setServiceStatus($this->isService)->get()['serial_no'];
 
         Http::setDefaultOptions($options);
         return $this->_doRequestCurl($method, 'https://api.mch.weixin.qq.com' . $endpoint, $options);
@@ -181,7 +189,7 @@ class BaseClient extends AbstractAPI
      */
     protected function encryptSensitiveInformation(string $string)
     {
-        $certificates = $this->app->certficates->get()['certificates'];
+        $certificates = $this->app->certficates->setServiceStatus($this->isService)->get()['certificates'];
         if (null === $certificates) {
             throw new InvalidConfigException('config certificate connot be empty.');
         }
@@ -238,7 +246,11 @@ class BaseClient extends AbstractAPI
         $sign = base64_encode($raw_sign);
         $schema = 'WECHATPAY2-SHA256-RSA2048 ';
         $token = sprintf('mchid="%s",nonce_str="%s",timestamp="%d",serial_no="%s",signature="%s"',
-            $this->app['config']['service_payment']['merchant_id'], $nonce_str, $timestamp, $this->app['config']['service_payment']['serial_no'], $sign);
+            ($this->isService ? $this->app['config']['service_payment']['merchant_id'] : $this->app['config']['payment']['merchant_id']),
+            $nonce_str,
+            $timestamp,
+            ($this->isService ? $this->app['config']['service_payment']['serial_no'] : $this->app['config']['payment']['serial_no']),
+            $sign);
 
         return $schema . $token;
     }
@@ -249,7 +261,7 @@ class BaseClient extends AbstractAPI
      */
     protected function getPrivateKey()
     {
-        $key_path = $this->app['config']['service_payment']['key_path'];
+        $key_path = $this->isService ? $this->app['config']['service_payment']['key_path'] : $this->app['config']['payment']['key_path'];
         if (!file_exists($key_path)) {
             throw new \InvalidArgumentException(
                 "SSL certificate not found: {$key_path}"
@@ -270,7 +282,7 @@ class BaseClient extends AbstractAPI
         $ciphertext = base64_decode($encryptCertificate['ciphertext'], true);
         $associatedData = $encryptCertificate['associated_data'];
         $nonceStr = $encryptCertificate['nonce'];
-        $aesKey = $this->app['config']['service_payment']['apiv3_key'];
+        $aesKey = ($this->isService ? $this->app['config']['service_payment']['apiv3_key'] : $this->app['config']['payment']['apiv3_key']);
 
         try {
             // ext-sodium (default installed on >= PHP 7.2)

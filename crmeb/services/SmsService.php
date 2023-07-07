@@ -121,7 +121,11 @@ class SmsService
                 break;
                 //用户支付成功提醒 -2.1
             case 'ORDER_PAY_SUCCESS':
-                //not break;
+                $order = app()->make(StoreGroupOrderRepository::class)->get($id);
+                $pay_price = $order->pay_price;
+                $order_id = $order->group_order_sn;
+                self::create()->send($order->user_phone, $tempId, compact('pay_price', 'order_id'));
+                break;
                 //改价提醒 -2.1
             case 'PRICE_REVISION_CODE':
                 $order = app()->make(StoreOrderRepository::class)->get($id);

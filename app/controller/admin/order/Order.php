@@ -146,7 +146,9 @@ class Order extends BaseController
     public function status($id)
     {
         [$page, $limit] = $this->getPage();
-        return app('json')->success($this->repository->getOrderStatus($id, $page, $limit));
+        $where = $this->request->params(['date','user_type']);
+        $where['id'] = $id;
+        return app('json')->success($this->repository->getOrderStatus($where, $page, $limit));
     }
 
     /**
@@ -187,4 +189,16 @@ class Order extends BaseController
         return app('json')->success($data);
     }
 
+    /**
+     * TODO
+     * @param $id
+     * @return \think\response\Json
+     * @author Qinii
+     * @day 2023/2/22
+     */
+    public function childrenList($id)
+    {
+        $data = $this->repository->childrenList($id, 0);
+        return app('json')->success($data);
+    }
 }

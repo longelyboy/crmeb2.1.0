@@ -195,7 +195,6 @@ class Uupt extends BaseStorage implements DeliveryInterface
         }
         $str  .= 'key=' . $this->config['app_key'];
         $str = mb_strtoupper($str, 'UTF-8');
-//        halt($data,$str);
         return strtoupper(md5($str));
     }
 

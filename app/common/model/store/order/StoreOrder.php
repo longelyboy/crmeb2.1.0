@@ -133,7 +133,7 @@ class StoreOrder extends BaseModel
     // 核销订单的自订单列表
     public function takeOrderList()
     {
-        return $this->hasMany(self::class,'main_id','order_id');
+        return $this->hasMany(self::class,'main_id','order_id')->order('verify_time DESC');
     }
 
     public function searchMerIdAttr($query, $value)
@@ -149,7 +149,7 @@ class StoreOrder extends BaseModel
 
     public function getOrderExtendAttr($val)
     {
-        return $val ? json_decode($val, true) : [];
+        return $val ? json_decode($val, true) : null;
     }
 
     public function getRefundExtensionOneAttr()

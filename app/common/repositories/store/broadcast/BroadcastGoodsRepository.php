@@ -259,7 +259,7 @@ class BroadcastGoodsRepository extends BaseRepository
 
         $goods = $goods->toArray();
         $miniProgramService = MiniProgramService::create();
-        $path = './public' . app()->make(DownloadImageService::class)->downloadImage($goods['cover_img'])['path'];
+        $path = './public' . app()->make(DownloadImageService::class)->downloadImage($goods['cover_img'],'def','',1)['path'];
         $data = [
             'name' => $goods['name'],
             'priceType' => 1,
@@ -278,7 +278,7 @@ class BroadcastGoodsRepository extends BaseRepository
     public function wxUpdate($id,$data)
     {
         $miniProgramService = MiniProgramService::create();
-        $path = './public' . app()->make(DownloadImageService::class)->downloadImage($data['cover_img'])['path'];
+        $path = './public' . app()->make(DownloadImageService::class)->downloadImage($data['cover_img'],'def','',1)['path'];
         $params = [
             "goodsId" => $id,
             'name' => $data['name'],

@@ -139,7 +139,8 @@ class StoreGroupOrderRepository extends BaseRepository
                     'balance' => $make->get($groupOrder->uid)->integral
                 ]);
             }
-
+            //订单记录
+            $storeOrderStatusRepository = app()->make(StoreOrderStatusRepository::class);
             foreach ($groupOrder->orderList as $order) {
                 if ($order->activity_type == 3 && $order->presellOrder) {
                     $order->presellOrder->status = 0;
@@ -149,12 +150,17 @@ class StoreGroupOrderRepository extends BaseRepository
                 $order->save();
                 $orderStatus[] = [
                     'order_id' => $order->order_id,
-                    'change_type' => 'cancel',
-                    'change_message' => '取消订单' . ($uid ? '' : '[自动]')
+                    'order_sn' => $order->order_sn,
+                    'type' => $storeOrderStatusRepository::TYPE_ORDER,
+                    'change_message' => '取消订单' . ($uid ? '' : '[自动]'),
+                    'change_type' => $storeOrderStatusRepository::ORDER_STATUS_CANCEL,
+                    'uid' => 0,
+                    'nickname' => '系统',
+                    'user_type' => $storeOrderStatusRepository::U_TYPE_SYSTEM,
                 ];
             }
             $groupOrder->save();
-            app()->make(StoreOrderStatusRepository::class)->insertAll($orderStatus);
+            $storeOrderStatusRepository->batchCreateLog($orderStatus);
         });
         Queue::push(CancelGroupOrderJob::class, $id);
     }

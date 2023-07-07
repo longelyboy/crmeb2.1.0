@@ -411,7 +411,7 @@ class Community extends BaseController
 
     public function getSpuByOrder($id)
     {
-        $data = $this->repository->getSpuByOrder($id, $this->request->userInfo()->uid);
+        $data = $this->repository->getSpuByOrder($id,7233);
         return app('json')->success($data);
     }
 
@@ -419,7 +419,9 @@ class Community extends BaseController
     {
         $id = (int)$id;
         $type = $this->request->param('type');
-        $url = $this->repository->qrcode($id, $type, $this->request->userInfo());
+        if ($this->request->isLogin()) {
+            $url = $this->repository->qrcode($id, $type, $this->request->userInfo());
+        }
         if (!$url) return app('json')->fail('二维码生成失败');
         return app('json')->success(compact('url'));
     }

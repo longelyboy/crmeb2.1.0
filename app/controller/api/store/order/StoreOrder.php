@@ -26,6 +26,7 @@ use crmeb\services\ExpressService;
 use crmeb\services\LockService;
 use think\App;
 use think\exception\ValidateException;
+use think\facade\Log;
 
 /**
  * Class StoreOrder

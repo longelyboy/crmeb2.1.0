@@ -15,6 +15,7 @@ use AlibabaCloud\SDK\Dysmsapi\V20170525\Models\AddShortUrlResponseBody\data;
 use app\common\dao\system\serve\ServeOrderDao;
 use app\common\model\system\serve\ServeOrder;
 use app\common\repositories\BaseRepository;
+use app\common\repositories\store\order\StoreOrderRepository;
 use app\common\repositories\store\product\ProductCopyRepository;
 use app\common\repositories\system\merchant\MerchantRepository;
 use app\common\repositories\user\UserRepository;
@@ -136,7 +137,7 @@ class ServeOrderRepository extends BaseRepository
         $param = $res['param'];
 
         if(!$result = Cache::store('file')->get($key)){
-            $order_sn = $this->setOrderSn(null);
+            $order_sn = app()->make(StoreOrderRepository::class)->getNewOrderId('cs');
             $param['order_sn'] = $order_sn;
             $param['body'] = $order_sn;
             $payType = $data['pay_type'] == 1 ? 'weixinQr' : 'alipayQr';
@@ -216,13 +217,6 @@ class ServeOrderRepository extends BaseRepository
         return ;
     }
 
-    public function setOrderSn($profix)
-    {
-        list($msec, $sec) = explode(' ', microtime());
-        $msectime = number_format((floatval($msec) + floatval($sec)) * 1000, 0, '', '');
-        $orderId = ($profix ?:'cs') . $msectime . mt_rand(10000, max(intval($msec * 10000) + 10000, 98369));
-        return $orderId;
-    }
 
     public function getList(array $where, int $page, int $limit)
     {

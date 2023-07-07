@@ -56,7 +56,7 @@ class StoreCategoryRepository extends BaseRepository
         }
         $form->setRule([
             Elm::cascader('pid', '上级分类')->options(function () use ($id, $merId) {
-                $menus = $this->dao->getAllOptions($merId,1,$this->dao->getMaxLevel()-1);
+                $menus = $this->dao->getAllOptions($merId,1,$this->dao->getMaxLevel($merId)-1);
                 if ($id && isset($menus[$id])) unset($menus[$id]);
                 $menus = formatCascaderData($menus, 'cate_name');
                 array_unshift($menus, ['label' => '顶级分类', 'value' => 0]);
@@ -108,22 +108,6 @@ class StoreCategoryRepository extends BaseRepository
     public function getBrandList()
     {
         return app()->make(StoreBrandRepository::class)->getAll();
-    }
-
-    /**
-     * TODO
-     * @param int $id
-     * @param int $pid
-     * @return bool
-     * @author Qinii
-     * @day 5/16/22
-     */
-    public function checkChildLevel(int $id,int $pid, $merId)
-    {
-        $childLevel = max($this->dao->getChildLevelById($id)); //1
-        if(!$childLevel) $childLevel = $this->dao->getLevelById($id);
-        $changLevel = $childLevel + ($this->changeLevel($id,$pid)); //2
-        return $this->checkLevel($id, $changLevel,$merId);
     }
 
     /**

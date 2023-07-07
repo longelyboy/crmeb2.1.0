@@ -265,7 +265,7 @@ class Common extends BaseController
             'fileExt' => 'mp4,mov',
             'fileMime' => 'video/mp4,video/quicktime',
         ]])->check(['file' => $file]);
-        $upload = UploadService::create(1);
+        $upload = UploadService::create();
         $data = $upload->to('media')->validate([])->move('file');
         if ($data === false) {
             return app('json')->fail($upload->getError());

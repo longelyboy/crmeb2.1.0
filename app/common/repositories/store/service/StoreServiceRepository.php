@@ -83,7 +83,7 @@ class StoreServiceRepository extends BaseRepository
             $pwd->required();
             $confirm_pwd->required();
         }
-        $adminRule = [];
+        $adminRule = $filed = [];
         if($merId){
             $adminRule = [
                 Elm::switches('customer', '订单管理', 1)->activeValue(1)->inactiveValue(0)->inactiveText('关')->activeText('开')->col(12),
@@ -98,7 +98,14 @@ class StoreServiceRepository extends BaseRepository
                     ]
                 ])
             ];
+
         }
+        $filed = [
+            "value" => 1,
+            "rule"  => [
+                "customer","is_goods","is_verify","notify"
+            ]
+        ];
         $adminRule[] = Elm::number('sort', '排序', 0)->precision(0)->max(99999);
         $prefix = $merId ? config('admin.merchant_prefix') : config('admin.admin_prefix');
         return Elm::createForm(Route::buildUrl('merchantServiceCreate')->build(), array_merge([
@@ -107,7 +114,7 @@ class StoreServiceRepository extends BaseRepository
             Elm::input('nickname', '客服昵称')->required(),
             Elm::input('account', '客服账号')->required(),
             $pwd, $confirm_pwd,
-            Elm::switches('is_open', '账号状态', 1)->activeValue(1)->inactiveValue(0)->inactiveText('关')->activeText('开')->col(12),
+            Elm::switches('is_open', '账号状态', 1)->activeValue(1)->inactiveValue(0)->inactiveText('关')->activeText('开')->col(12)->control([$filed]),
             Elm::switches('status', '客服状态', 1)->activeValue(1)->inactiveValue(0)->inactiveText('关')->activeText('开')->col(12),
         ], $adminRule))->setTitle('添加客服');
     }
@@ -146,12 +153,15 @@ class StoreServiceRepository extends BaseRepository
      * @author xaboy
      * @day 2020/5/29
      */
-    public function getChatService($merId, $uid)
+    public function getChatService($merId, $uid = 0)
     {
-        $logRepository = app()->make(StoreServiceLogRepository::class);
-        $lastServiceId = $logRepository->getLastServiceId($merId, $uid);
         $service = null;
-        if ($lastServiceId)
+        if ($uid) {
+            $logRepository = app()->make(StoreServiceLogRepository::class);
+            $lastServiceId = $logRepository->getLastServiceId($merId, $uid);
+        }
+
+        if (isset($lastServiceId) && $lastServiceId)
             $service = $this->getValidServiceInfo($lastServiceId);
         if ($service) return $service;
         $service = $this->dao->getRandService($merId);
@@ -162,7 +172,6 @@ class StoreServiceRepository extends BaseRepository
     {
         $order = $is_sys ? 'ASC' : 'DESC';
         $where['uid'] = $uid;
-        $where['status'] = 1;
         $list = $this->search($where)->with(['merchant' => function ($query) {
             $query->field('mer_id,mer_avatar,mer_name');
         }])->order('mer_id '.$order)->select()->hidden(['pwd'])->toArray();

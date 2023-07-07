@@ -249,8 +249,16 @@ class ProductReplyRepository extends BaseRepository
                 $orderProduct->orderInfo->status = 3;
                 $orderProduct->orderInfo->save();
                 //TODO 交易完成
-                $statusRepository = app()->make(StoreOrderStatusRepository::class);
-                $statusRepository->status($orderProduct->orderInfo->order_id, $statusRepository::ORDER_STATUS_OVER, '交易完成');
+                //订单记录
+                $storeOrderStatusRepository = app()->make(StoreOrderStatusRepository::class);
+                $orderStatus = [
+                    'order_id' => $orderProduct->orderInfo->order_id,
+                    'order_sn' => $orderProduct->orderInfo->order_sn,
+                    'type' => $storeOrderStatusRepository::TYPE_ORDER,
+                    'change_message' => '交易完成',
+                    'change_type' => $storeOrderStatusRepository::ORDER_STATUS_OVER,
+                ];
+                $storeOrderStatusRepository->createSysLog($orderStatus);
             }
         });
         SwooleTaskService::merchant('notice', [

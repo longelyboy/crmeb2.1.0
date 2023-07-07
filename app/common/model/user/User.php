@@ -193,14 +193,17 @@ class User extends BaseModel
     public function service()
     {
         return $this->hasOne(StoreService::class, 'uid', 'uid')
-            ->where('mer_id', '<>', 0)->field('service_id,uid,nickname,avatar,customer,mer_id,is_verify,is_goods')->where('is_del', 0)->where('status', 1)
+            ->where('mer_id', '<>', 0)
+            ->where('is_del', 0)
+            ->where('is_open', 1)
+            ->field('service_id,uid,nickname,avatar,customer,mer_id,is_verify,is_goods,is_open')
             ->order('is_verify DESC,customer DESC');
     }
 
     public function topService()
     {
         return $this->hasOne(StoreService::class, 'uid', 'uid')
-            ->where('mer_id', 0)->field('service_id,uid,nickname,avatar,customer,mer_id,is_verify,is_goods')->where('is_del', 0)->where('status', 1)
+            ->where('mer_id', 0)->field('service_id,uid,nickname,avatar,customer,mer_id,is_verify,is_goods')->where('is_del', 0)
             ->order('is_verify DESC,customer DESC');
     }
 

@@ -31,7 +31,7 @@ class RefundOrderAgreeListen extends TimerService implements ListenerInterface
             $data = $make->getTimeOutIds($time);
             foreach ($data as $id) {
                 try {
-                    $make->adminRefund($id, 0);
+                    $make->adminRefund($id);
                 } catch (\Exception $e) {
                     Log::info('自动退款失败' . var_export($id, true));
                 }

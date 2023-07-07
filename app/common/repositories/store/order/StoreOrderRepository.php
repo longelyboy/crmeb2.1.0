@@ -50,6 +50,7 @@ use crmeb\services\SwooleTaskService;
 use Exception;
 use FormBuilder\Factory\Elm;
 use FormBuilder\Form;
+use http\Exception\InvalidArgumentException;
 use think\db\exception\DataNotFoundException;
 use think\db\exception\DbException;
 use think\db\exception\ModelNotFoundException;
@@ -74,6 +75,12 @@ class StoreOrderRepository extends BaseRepository
      */
     const PAY_TYPE = ['balance', 'weixin', 'routine', 'h5', 'alipay', 'alipayQr', 'weixinQr'];
 
+    const TYPE_SN_ORDER = 'wxo';
+    const TYPE_SN_PRESELL = 'wxp';
+    const TYPE_SN_USER_ORDER = 'wxs';
+    const TYPE_SN_USER_RECHARGE = 'wxu';
+
+    const TYPE_SN_REFUND = 'rwx';
     /**
      * StoreOrderRepository constructor.
      * @param StoreOrderDao $dao
@@ -196,6 +203,8 @@ class StoreOrderRepository extends BaseRepository
             $uid = $groupOrder->uid;
             $i = 1;
             $isVipCoupon = app()->make(StoreGroupOrderRepository::class)->isVipCoupon($groupOrder);
+            //订单记录
+            $storeOrderStatusRepository = app()->make(StoreOrderStatusRepository::class);
             $svipDiscount = 0;
             foreach ($groupOrder->orderList as $_k => $order) {
                 $order->paid = 1;
@@ -235,8 +244,13 @@ class StoreOrderRepository extends BaseRepository
                 $order->save();
                 $orderStatus[] = [
                     'order_id' => $order->order_id,
+                    'order_sn' => $order->order_sn,
+                    'type' => $storeOrderStatusRepository::TYPE_ORDER,
                     'change_message' => '订单支付成功',
-                    'change_type' => 'pay_success'
+                    'change_type' => $storeOrderStatusRepository::ORDER_STATUS_PAY_SUCCCESS,
+                    'uid' => $order->uid,
+                    'nickname' => $order->user->nickname,
+                    'user_type' => $storeOrderStatusRepository::U_TYPE_USER,
                 ];
 
                 //TODO 成为推广员
@@ -396,7 +410,7 @@ class StoreOrderRepository extends BaseRepository
                 $storeOrderProfitsharingRepository->insertAll($profitsharing);
             }
             $financialRecordRepository->insertAll($finance);
-            app()->make(StoreOrderStatusRepository::class)->insertAll($orderStatus);
+            $storeOrderStatusRepository->batchCreateLog($orderStatus);
             if (count($groupOrder['give_coupon_ids']) > 0)
                 $groupOrder['give_coupon_ids'] = app()->make(StoreCouponRepository::class)->getGiveCoupon($groupOrder['give_coupon_ids'])->column('coupon_id');
             $groupOrder->save();
@@ -442,11 +456,11 @@ class StoreOrderRepository extends BaseRepository
      * @author xaboy
      * @day 2020/6/9
      */
-    public function getNewOrderId()
+    public function getNewOrderId($type)
     {
         list($msec, $sec) = explode(' ', microtime());
         $msectime = number_format((floatval($msec) + floatval($sec)) * 1000, 0, '', '');
-        $orderId = 'wx' . $msectime . mt_rand(10000, max(intval($msec * 10000) + 10000, 98369));
+        $orderId = $type . $msectime . mt_rand(10000, max(intval($msec * 10000) + 10000, 98369));
         return $orderId;
     }
 
@@ -585,6 +599,8 @@ class StoreOrderRepository extends BaseRepository
                 }
             ])
             ->find();
+        if (!$data)
+            throw new ValidateException('数据不存在');
         if ($data['status'])
             throw new ValidateException('该订单已全部核销');
         return $data;
@@ -673,14 +689,10 @@ class StoreOrderRepository extends BaseRepository
      * @author xaboy
      * @day 2020/8/3
      */
-    public function takeAfter(StoreOrder $order, User $user)
+    public function takeAfter(StoreOrder $order, ?User $user)
     {
         Db::transaction(function () use ($user, $order) {
-            $this->computed($order, $user);
-            //TODO 确认收货
-            $statusRepository = app()->make(StoreOrderStatusRepository::class);
-
-            $statusRepository->status($order->order_id, $statusRepository::ORDER_STATUS_TAKE, $order->order_type  == 1 ? '已核销' :'已收货');
+            if ($user) $this->computed($order, $user);
             Queue::push(SendSmsJob::class, ['tempId' => 'ORDER_TAKE_SUCCESS', 'id' => $order->order_id]);
             Queue::push(SendSmsJob::class, ['tempId' => 'ADMIN_TAKE_DELIVERY_CODE', 'id' => $order->order_id]);
             app()->make(MerchantRepository::class)->computedLockMoney($order);
@@ -704,16 +716,31 @@ class StoreOrderRepository extends BaseRepository
             throw new ValidateException('订单不存在');
         if ($order['status'] != 1 || $order['order_type'])
             throw new ValidateException('订单状态有误');
-        if (!$user) $user = $order->user;
-        if (!$user) {
-            throw new ValidateException('用户不存在');
+        $func = 'createUserLog';
+        if (!$user){
+            $func = 'createSysLog';
+            $user = $order->user;
         }
+//        if (!$user) {
+//
+//            throw new ValidateException('用户不存在');
+//        }
         $order->status = 2;
         $order->verify_time = date('Y-m-d H:i:s');
         event('order.take.before', compact('order'));
-        Db::transaction(function () use ($order, $user) {
+        //订单记录
+        $storeOrderStatusRepository = app()->make(StoreOrderStatusRepository::class);
+        $orderStatus = [
+            'order_id' => $order->order_id,
+            'order_sn' => $order->order_sn,
+            'type' => $storeOrderStatusRepository::TYPE_ORDER,
+            'change_message' => '已收货',
+            'change_type' => $storeOrderStatusRepository::ORDER_STATUS_TAKE,
+        ];
+        Db::transaction(function () use ($order, $user,$storeOrderStatusRepository,$orderStatus,$func) {
             $this->takeAfter($order, $user);
             $order->save();
+            $storeOrderStatusRepository->{$func}($orderStatus);
         });
         event('order.take', compact('order'));
     }
@@ -886,7 +913,7 @@ class StoreOrderRepository extends BaseRepository
      * @author Qinii
      * @day 12/15/20
      */
-    public function eidt(int $id, array $data)
+    public function eidt(int $id, array $data, $service_id = 0)
     {
 
         /**
@@ -921,18 +948,32 @@ class StoreOrderRepository extends BaseRepository
         //总单实际支付邮费
         $_group['pay_postage'] = $this->bcmathPrice($orderGroup['pay_postage'], $order['pay_postage'], $data['pay_postage']);
         event('order.changePrice.before', compact('order', 'data'));
-        Db::transaction(function () use ($id, $data, $orderGroup, $order, $_group) {
+        //订单记录
+        $storeOrderStatusRepository = app()->make(StoreOrderStatusRepository::class);
+
+        $orderStatus = [
+            'order_id' => $order->order_id,
+            'order_sn' => $order->order_sn,
+            'type' => $storeOrderStatusRepository::TYPE_ORDER,
+            'change_message' => '订单价格修改',
+            'change_type' => $storeOrderStatusRepository::ORDER_STATUS_CHANGE,
+        ];
+
+        Db::transaction(function () use ($id, $data, $orderGroup, $order, $_group,$storeOrderStatusRepository,$orderStatus,$service_id) {
             $orderGroup->total_price = $_group['total_price'];
             $orderGroup->pay_price = $_group['pay_price'];
             $orderGroup->pay_postage = $_group['pay_postage'];
-            $orderGroup->group_order_sn = $this->getNewOrderId() . '0';
+            $orderGroup->group_order_sn = $this->getNewOrderId(StoreOrderRepository::TYPE_SN_ORDER) . '0';
             $orderGroup->save();
 
             $this->dao->update($id, $data);
             $this->changOrderProduct($id, $data);
 
-            $statusRepository = app()->make(StoreOrderStatusRepository::class);
-            $statusRepository->status($id, $statusRepository::ORDER_STATUS_CHANGE, '订单信息修改');
+            if ($service_id) {
+                $storeOrderStatusRepository->createServiceLog($service_id,$orderStatus);
+            } else {
+                $storeOrderStatusRepository->createAdminLog($orderStatus);
+            }
             if ($data['pay_price'] != $order['pay_price']) Queue::push(SendSmsJob::class, ['tempId' => 'PRICE_REVISION_CODE', 'id' => $id]);
         });
         event('order.changePrice', compact('order', 'data'));
@@ -1057,7 +1098,6 @@ class StoreOrderRepository extends BaseRepository
         $make = app()->make(StoreImportDeliveryRepository::class);
         $data = [];
         $num = 0;
-
         foreach ($params['order_id'] as $item) {
             $ret = $this->dao->getWhere(['order_id' => $params['order_id']]);
             $imp = [
@@ -1069,19 +1109,12 @@ class StoreOrderRepository extends BaseRepository
                 'mer_id' => $merId
             ];
 
-            if (
-                !$ret ||
-                $ret['mer_id'] != $merId ||
-                $ret['is_del'] != 0 ||
-                $ret['paid'] != 1 ||
-                $ret['delivery_type'] != 0
-            ) {
+            if (!$ret || $ret['status'] != 1 || $ret['mer_id'] != $merId || $ret['is_del'] != 0 || $ret['paid'] != 1 || $ret['delivery_type'] != 0 ) {
                 $imp['status'] = 0;
                 $imp['mark'] = '订单信息不存在或状态错误';
             } else {
-
-                switch ($params['delivery_type']) {
-                    case 4:  //电子面单
+                try {
+                    if ($params['delivery_type'] == 4) {
                         $dump = [
                             'temp_id' => $params['temp_id'],
                             'from_tel' => $params['from_tel'],
@@ -1090,31 +1123,21 @@ class StoreOrderRepository extends BaseRepository
                             'delivery_name' => $params['delivery_name'],
                         ];
                         $dump = $this->orderDumpInfo($item, $dump, $merId);
-                        try {
-                            $ret = $this->dump($item, $merId, $dump);
-                            $num++;
-                            $imp['delivery_id'] = $ret['delivery_id'];
-                            $imp['delivery_name'] = $ret['delivery_name'];
-                            $imp['status'] = 1;
-                        } catch (Exception $exception) {
-                            $imp['status'] = 0;
-                            $imp['mark'] = $exception->getMessage();
-                        }
-                        break;
-                    default:
-                        try {
-                            $this->delivery($item, $merId,[
-                                'delivery_id' => $params['delivery_id'],
-                                'delivery_type' => $params['delivery_type'],
-                                'delivery_name' => $params['delivery_name'],
-                            ]);
-                            $num++;
-                            $imp['status'] = 1;
-                        } catch (Exception $exception) {
-                            $imp['status'] = 0;
-                            $imp['mark'] = $exception->getMessage();
-                        }
-                        break;
+                        $ret = $this->dump($item, $merId, $dump);
+                        $imp['delivery_id'] = $ret['delivery_id'];
+                        $imp['delivery_name'] = $ret['delivery_name'];
+                    } else {
+                        $this->delivery($item, $merId,[
+                            'delivery_id' => $params['delivery_id'],
+                            'delivery_type' => $params['delivery_type'],
+                            'delivery_name' => $params['delivery_name'],
+                        ]);
+                    }
+                    $num++;
+                    $imp['status'] = 1;
+                } catch (Exception $exception) {
+                    $imp['status'] = 0;
+                    $imp['mark'] = $exception->getMessage();
                 }
             }
             $data[] = $imp;
@@ -1136,7 +1159,7 @@ class StoreOrderRepository extends BaseRepository
      * @author Qinii
      * @day 7/26/21
      */
-    public function dump(int $id, int $merId, array $data)
+    public function dump(int $id, int $merId, array $data, $service_id = 0)
     {
         $make = app()->make(MerchantRepository::class);
         $make->checkCrmebNum($merId, 'dump');
@@ -1151,7 +1174,7 @@ class StoreOrderRepository extends BaseRepository
             'delivery_type' => 4,
             'delivery_name' => $data['delivery_name'],
             'delivery_id' => $result['kuaidinum'],
-            'remark' => $data['remark'],
+            'remark' => $data['remark'] ?? '',
         ];
 
         $dump = [
@@ -1161,8 +1184,8 @@ class StoreOrderRepository extends BaseRepository
             'order_sn' => $data['order_sn'],
             'to_name' => $data['to_name'],
         ];
-        Db::transaction(function () use ($merId, $id, $delivery, $make, $dump) {
-            $this->delivery($id, $merId, $delivery);
+        Db::transaction(function () use ($merId, $id, $delivery, $make, $dump, $service_id) {
+            $this->delivery($id, $merId, $delivery,$service_id);
             $arr = [
                 'type' => 'mer_dump',
                 'num' => -1,
@@ -1174,22 +1197,22 @@ class StoreOrderRepository extends BaseRepository
         return $delivery;
     }
 
-    public function runDelivery($id, $merId, $data, $split, $method)
+    public function runDelivery($id, $merId, $data, $split, $method,$service_id = 0)
     {
-        return Db::transaction(function () use ($id, $merId, $data, $split, $method) {
+        return Db::transaction(function () use ($id, $merId, $data, $split, $method,$service_id) {
             if ($split['is_split'] && !empty($split['split'])) {
                 foreach ($split['split'] as $v) {
                     $splitData[$v['id']] = $v['num'];
                 }
                 $order = $this->dao->get($id);
-                $newOrder = app()->make(StoreOrderSplitRepository::class)->splitOrder($order, $splitData);
+                $newOrder = app()->make(StoreOrderSplitRepository::class)->splitOrder($order, $splitData,$service_id);
                 if ($newOrder){
                     $id = $newOrder->order_id;
                 } else {
                     throw new ValidateException('商品不能全部拆单');
                 }
             }
-            return $this->{$method}($id, $merId, $data);
+            return $this->{$method}($id, $merId, $data,$service_id);
         });
     }
 
@@ -1201,12 +1224,13 @@ class StoreOrderRepository extends BaseRepository
      * @author Qinii
      * @day 7/26/21
      */
-    public function delivery($id, $merId, $data)
+    public function delivery($id, $merId, $data, $service_id = 0)
     {
         $data['status'] = 1;
         $order = $this->dao->get($id);
         if ($order['is_virtual'] && $data['delivery_type'] != 3)
             throw new ValidateException('虚拟商品只能虚拟发货');
+        //订单记录
         $statusRepository = app()->make(StoreOrderStatusRepository::class);
         switch ($data['delivery_type']) {
             case 1:
@@ -1241,13 +1265,35 @@ class StoreOrderRepository extends BaseRepository
         event('order.delivery.before', compact('order', 'data'));
         $this->dao->update($id, $data);
 
+        $orderStatus = [
+            'order_id' => $order->order_id,
+            'order_sn' => $order->order_sn,
+            'type' => $statusRepository::TYPE_ORDER,
+            'change_message' => $change_message,
+            'change_type' => $change_type,
+        ];
+        if ($service_id) {
+            $statusRepository->createServiceLog($service_id,$orderStatus);
+        } else {
+            $statusRepository->createAdminLog($orderStatus);
+        }
+
+
         //虚拟发货后用户直接确认收获
         if($data['status'] ==  2){
             $user = app()->make(UserRepository::class)->get($order['uid']);
+            //订单记录
             $this->takeAfter($order,$user);
-        }
+            $orderStatus = [
+                'order_id' => $order->order_id,
+                'order_sn' => $order->order_sn,
+                'type' => $statusRepository::TYPE_ORDER,
+                'change_message' => '虚拟发货后',
+                'change_type' => $statusRepository::ORDER_STATUS_TAKE,
+            ];
+            $statusRepository->createSysLog($orderStatus);
 
-        $statusRepository->status($id, $change_type, $change_message);
+        }
         if (isset($temp_code)) Queue::push(SendSmsJob::class, ['tempId' => $temp_code, 'id' => $order->order_id]);
 
         event('order.delivery', compact('order', 'data'));
@@ -1262,18 +1308,29 @@ class StoreOrderRepository extends BaseRepository
      * @author Qinii
      * @day 2/16/22
      */
-    public function cityDelivery(int $id, int $merId, array $data)
+    public function cityDelivery(int $id, int $merId, array $data, $service_id)
     {
         $make = app()->make(DeliveryOrderRepository::class);
         $order = $this->dao->get($id);
         if ($order['is_virtual'])
             throw new ValidateException('虚拟商品只能虚拟发货');
         $make->create($id, $merId, $data, $order);
-
+        //订单记录
+        $storeOrderStatusRepository = app()->make(StoreOrderStatusRepository::class);
         $this->dao->update($id, ['delivery_type' => 5, 'status' => 1,'remark' => $data['remark']]);
 
-        $statusRepository = app()->make(StoreOrderStatusRepository::class);
-        $statusRepository->status($id, $statusRepository::ORDER_DELIVERY_CITY, '订单已配送【同城配送】');
+        $orderStatus = [
+            'order_id' => $id,
+            'order_sn' => $order->order_sn,
+            'type' => $storeOrderStatusRepository::TYPE_ORDER,
+            'change_message' => '订单配送【同城配送】',
+            'change_type' => $storeOrderStatusRepository::ORDER_DELIVERY_SELF,
+        ];
+        if ($service_id) {
+            $storeOrderStatusRepository->createServiceLog($service_id,$orderStatus);
+        } else {
+            $storeOrderStatusRepository->createAdminLog($orderStatus);
+        }
 
         Queue::push(SendSmsJob::class, ['tempId' => 'ORDER_DELIVER_SUCCESS', 'id' => $id]);
     }
@@ -1286,7 +1343,7 @@ class StoreOrderRepository extends BaseRepository
             $whre['mer_id'] = $merId;
             $whre['is_system_del'] = 0;
         }
-        return $this->dao->getWhere($where, '*', [
+        $res = $this->dao->getWhere($where, '*', [
             'orderProduct',
             'user' => function ($query) {
                 $query->field('uid,real_name,nickname,is_svip,svip_endtime,phone');
@@ -1294,13 +1351,24 @@ class StoreOrderRepository extends BaseRepository
             'refundOrder' => function ($query) {
                 $query->field('order_id,extension_one,extension_two,refund_price,integral')->where('status', 3);
             },
-            'finalOrder',]
-        )->append(['refund_extension_one', 'refund_extension_two']);
+            'finalOrder',
+            'TopSpread' => function ($query) {
+                $query->field('uid,nickname,avatar');
+            },
+            'spread' => function ($query) {
+                $query->field('uid,nickname,avatar');
+            },
+            ]
+        );
+        if (!$res) throw new ValidateException('数据不存在');
+        $res['integral'] = (int)$res['integral'];
+        return $res->append(['refund_extension_one', 'refund_extension_two']);
     }
 
-    public function getOrderStatus($id, $page, $limit)
+    public function getOrderStatus($where, $page, $limit)
     {
-        return app()->make(StoreOrderStatusRepository::class)->search($id, $page, $limit);
+        $where['type'] = StoreOrderStatusRepository::TYPE_ORDER;
+        return app()->make(StoreOrderStatusRepository::class)->search($where, $page, $limit);
     }
 
     public function remarkForm($id)
@@ -1310,7 +1378,7 @@ class StoreOrderRepository extends BaseRepository
         $form->setRule([
             Elm::text('remark', '备注', $data['remark'])->required(),
         ]);
-        return $form->setTitle('修改备注');
+        return $form->setTitle('订单备注');
     }
 
     public function adminMarkForm($id)
@@ -1320,7 +1388,7 @@ class StoreOrderRepository extends BaseRepository
         $form->setRule([
             Elm::text('admin_mark', '备注', $data['admin_mark'])->required(),
         ]);
-        return $form->setTitle('修改备注');
+        return $form->setTitle('订单备注');
     }
 
     /**
@@ -1346,6 +1414,9 @@ class StoreOrderRepository extends BaseRepository
                 $query->field('group_order_id,group_order_sn');
             },
             'finalOrder',
+            'user' => function ($query) {
+                $query->field('uid,nickname,avatar');
+            },
         ])->page($page, $limit)->select()->append(['refund_extension_one', 'refund_extension_two']);
 
         return compact('count', 'list');
@@ -1454,6 +1525,9 @@ class StoreOrderRepository extends BaseRepository
                     $query->field('uid,nickname,avatar');
                 },
                 'spread' => function ($query) {
+                    $query->field('uid,nickname,avatar');
+                },
+                'user' => function ($query) {
                     $query->field('uid,nickname,avatar');
                 },
             ]);
@@ -1743,15 +1817,30 @@ class StoreOrderRepository extends BaseRepository
         foreach ($data['data'] as $v) {
             $splitData[$v['id']] = $v['num'];
         }
-        $spl = app()->make(StoreOrderSplitRepository::class)->splitOrder($order, $splitData);
+        $spl = app()->make(StoreOrderSplitRepository::class)->splitOrder($order, $splitData, $serviceId, 1);
         if ($spl) $order = $spl;
         $order->status = 2;
         $order->verify_time = date('Y-m-d H:i:s');
         $order->verify_service_id = $serviceId;
         event('order.verify.before', compact('order'));
-        Db::transaction(function () use ($order) {
+        //订单记录
+        $storeOrderStatusRepository = app()->make(StoreOrderStatusRepository::class);
+        Db::transaction(function () use ($order,$storeOrderStatusRepository,$serviceId) {
             $this->takeAfter($order, $order->user);
             $order->save();
+            $orderStatus = [
+                'order_id' => $order->order_id,
+                'order_sn' => $order->order_sn,
+                'type' => $storeOrderStatusRepository::TYPE_ORDER,
+                'change_message' => '订单已核销',
+                'change_type' => $storeOrderStatusRepository::ORDER_STATUS_TAKE,
+            ];
+            if ($serviceId){
+                $storeOrderStatusRepository->createServiceLog($serviceId,$orderStatus);
+            } else {
+                $storeOrderStatusRepository->createAdminLog($orderStatus);
+            }
+
         });
         event('order.verify', compact('order'));
     }
@@ -1916,8 +2005,7 @@ class StoreOrderRepository extends BaseRepository
 
     public function orderRefundAllAfter($order)
     {
-        $statusRepository = app()->make(StoreOrderStatusRepository::class);
-        $statusRepository->status($order['order_id'], $statusRepository::ORDER_STATUS_REFUND_ALL, '订单已全部退款');
+
         if ($order->activity_type == 10) {
             app()->make(StoreDiscountRepository::class)->incStock($order->orderProduct[0]['activity_id']);
         }
@@ -1946,6 +2034,17 @@ class StoreOrderRepository extends BaseRepository
             }
 
         }
+        //订单记录
+        $storeOrderStatusRepository = app()->make(StoreOrderStatusRepository::class);
+        $orderStatus = [
+            'order_id' => $order->order_id,
+            'order_sn' => $order->order_sn,
+            'type' => $storeOrderStatusRepository::TYPE_ORDER,
+            'change_message' => '订单已全部退款',
+            'change_type' => $storeOrderStatusRepository::ORDER_STATUS_REFUND_ALL,
+        ];
+        $storeOrderStatusRepository->createSysLog($orderStatus);
+
         event('order.refundAll', compact('order'));
     }
 
@@ -1970,12 +2069,20 @@ class StoreOrderRepository extends BaseRepository
 
     public function delOrder($order, $info = '订单删除')
     {
-        Db::transaction(function () use ($info, $order) {
+        //订单记录
+        $storeOrderStatusRepository = app()->make(StoreOrderStatusRepository::class);
+        $orderStatus = [
+            'order_id' => $order->order_id,
+            'order_sn' => $order->order_sn,
+            'type' => $storeOrderStatusRepository::TYPE_ORDER,
+            'change_message' => $info,
+            'change_type' => $storeOrderStatusRepository::ORDER_STATUS_DELETE,
+        ];
+        $productRepository = app()->make(ProductRepository::class);
+        Db::transaction(function () use ($info, $order, $orderStatus, $storeOrderStatusRepository,$productRepository) {
             $order->is_del = 1;
             $order->save();
-            $statusRepository = app()->make(StoreOrderStatusRepository::class);
-            $statusRepository->status($order->order_id, $statusRepository::ORDER_STATUS_DELETE, $info);
-            $productRepository = app()->make(ProductRepository::class);
+            $storeOrderStatusRepository->createUserLog($orderStatus);
             foreach ($order->orderProduct as $cart) {
                 $productRepository->orderProductIncStock($order, $cart);
             }
@@ -2148,4 +2255,26 @@ class StoreOrderRepository extends BaseRepository
         if (file_exists($arrary['path'])) unlink($arrary['path']);
     }
 
+    /**
+     * TODO 根据订单查询相关联的自订单
+     * @param $id
+     * @param $merId
+     * @return \think\Collection
+     * @author Qinii
+     * @day 2023/2/22
+     */
+    public function childrenList($id,$merId)
+    {
+        $data = $this->dao->get($id);
+        $query = $this->dao->getSearch([])->with(['orderProduct'])->where('order_id','<>',$id);
+        if ($merId) $query->where('mer_id',$merId);
+        if ($data['main_id']) {
+            $query->where(function($query) use($data,$id){
+                $query->where('main_id',$data['main_id'])->whereOr('order_id',$data['main_id']);
+            });
+        } else {
+            $query->where('main_id',$id);
+        }
+        return $query->select();
+    }
 }

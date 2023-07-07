@@ -23,9 +23,9 @@ class ProductSkuDao extends BaseDao
         return ProductSku::class;
     }
 
-    public function clear(array $id, int $type)
+    public function clear(int $id, int $type)
     {
-        $this->getModel()::getDB()->whereIn('active_id', $id)->where('active_type', $type)->delete();
+        $this->getModel()::getDB()->where('active_id', $id)->where('active_type', $type)->delete();
     }
 
     public function descStock(int $active_id, string $unique, int $desc)

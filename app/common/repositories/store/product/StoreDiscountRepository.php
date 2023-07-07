@@ -59,7 +59,7 @@ class StoreDiscountRepository extends BaseRepository
                 $res = activeProductSku($discountsProduct, 'discounts');
                 $item['count'] = count($res['data']);
                 $count = count(explode(',',$item['product_ids']));
-                if ((!$item['type'] && $count == $item['count']) || ($item['type'] && $count > 1)) {
+                if ((!$item['type'] && $count == $item['count']) || ($item['type'] && $count > 0)) {
                     $item['max_price'] = $res['price'];
                     $item['discountsProduct'] = $res['data'];
                     $list[] = $item;
@@ -120,8 +120,6 @@ class StoreDiscountRepository extends BaseRepository
         $discountsData['is_show'] = $data['is_show'];
         $discountsData['mer_id'] = $data['mer_id'];
         $product_ids = [];
-
-        $storeDiscountsProductsServices = app()->make(StoreDiscountProductRepository::class);
         $productRepository = app()->make(ProductRepository::class);
 
         foreach ($data['products'] as $product) {
@@ -145,17 +143,17 @@ class StoreDiscountRepository extends BaseRepository
         }
 
         $discountsData['product_ids'] = implode(',', $product_ids);
-
-        return Db::transaction(function () use($data, $discountsData, $storeDiscountsProductsServices){
+        return Db::transaction(function () use($data, $discountsData){
             if (isset($data['discount_id'])) {
                 $discountsId = $data['discount_id'];
                 $this->dao->update($discountsId, $discountsData);
-                $storeDiscountsProductsServices->clear($discountsId);
+                app()->make(StoreDiscountProductRepository::class)->clear($discountsId);
+                app()->make(ProductSkuRepository::class)->clear($discountsId, ProductSkuRepository::ACTIVE_TYPE_DISCOUNTS);
             } else {
                 $res = $this->dao->create($discountsData);
                 $discountsId = $res['discount_id'];
             }
-            $this->saveProduct($discountsId, $data['products'], $data['mer_id']);
+            return $this->saveProduct($discountsId, $data['products'], $data['mer_id']);
         });
     }
 

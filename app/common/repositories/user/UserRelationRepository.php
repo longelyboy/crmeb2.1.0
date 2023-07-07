@@ -101,24 +101,28 @@ class UserRelationRepository extends BaseRepository
     public function search(array $where, int $page, int $limit)
     {
         $with = [];
-        if($where['type'] == 1) $with = ['spu'];
+        if($where['type'] == 1) $with = [
+            'spu'
+        ];
         if($where['type'] == 10) $with = [
             'merchant' => function($query){
-                $query->field('mer_id,type_id,mer_name,mer_avatar,sales,mer_info,care_count');
+                $query->where('status',1)->where('mer_state',1)->where('is_del',0)->field('mer_id,type_id,mer_name,mer_avatar,sales,mer_info,care_count,status,is_del,mer_state');
             }
         ];
         $query = $this->dao->search($where);
         $query->with($with)->order('create_time DESC');
         $count = $query->count();
         $list = $query->page($page, $limit)->select();
-        $make = app()->make(ProductRepository::class);
-        foreach ($list as $item) {
-            if(isset($item['spu']['product_type']) && $item['spu']['product_type'] == 1){
-                $item['spu']['stop_time'] = $item->stop_time;
-                unset($item['spu']['seckillActive']);
-            }
-            if (isset($item['merchant']) && $item['merchant'] ) {
-                $item['merchant']['showProduct'] = $item['merchant']['AllRecommend'];
+        foreach ($list as &$item) {
+            if ($item['type'] == 1) {
+                if(isset($item['spu']['product_type']) && $item['spu']['product_type'] == 1){
+                    $item['spu']['stop_time'] = $item->stop_time;
+                    unset($item['spu']['seckillActive']);
+                }
+            } else {
+                if (isset($item['merchant']) && $item['merchant']) {
+                    $item['merchant']['showProduct'] = $item['merchant']['AllRecommend'];
+                }
             }
         }
         return compact('count', 'list');
@@ -166,31 +170,27 @@ class UserRelationRepository extends BaseRepository
     }
 
     /**
-     * @param array $data
+     * TODO 批量删除
+     * @param array $ids
+     * @param $uid
+     * @param $type
      * @author Qinii
+     * @day 2023/2/16
      */
-    public function destory(array $data,$lst = 0)
+    public function batchDestory(array $ids,$uid, $type = 1)
     {
-        if($lst){
-            $id = $data['type_id'];
-            $make = app()->make(ProductRepository::class);
-        }else{
-            if(in_array($data['type'],[0,1,2,3,4])) {
-                $spu = $this->getSpu($data);
-                $data['type_id'] = $spu->spu_id;
-                $id = $spu['product_id'];
-                $data['type'] = 1;
-                $make = app()->make(ProductRepository::class);
+        if ($type == 10) {
+            app()->make(MerchantRepository::class)->decCareCount($ids);
+            $type_id = $ids;
+        } else {
+            foreach ($ids as $id) {
+                $spu = $this->getSpu(['type_id' => $id, 'type' => $type]);
+                $type_id[] = $spu->spu_id;
             }
-            if($data['type'] == 10){
-                $id = $data['type_id'];
-                $make = app()->make(MerchantRepository::class);
-            }
+            $type = 1;
+            app()->make(ProductRepository::class)->decCareCount($ids);
         }
-        return Db::transaction(function()use($data,$make,$id){
-            $make->decCareCount($id);
-            $this->dao->destory($data);
-        });
+        return $this->dao->search(['uid' => $uid,'type' => $type])->where('type_id','in',$type_id)->delete();
     }
 
     /**

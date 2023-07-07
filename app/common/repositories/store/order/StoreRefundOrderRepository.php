@@ -118,10 +118,19 @@ class StoreRefundOrderRepository extends BaseRepository
      */
     public function userDel($id, $uid)
     {
-        Db::transaction(function () use ($uid, $id) {
+        $ret = $this->dao->get($id);
+        //退款订单记录
+        $storeOrderStatusRepository = app()->make(StoreOrderStatusRepository::class);
+        $orderStatus = [
+            'order_id' => $ret->refund_order_id,
+            'order_sn' => $ret->refund_order_sn,
+            'type' => $storeOrderStatusRepository::TYPE_REFUND,
+            'change_message' => '创建退款单',
+            'change_type' => $storeOrderStatusRepository::ORDER_STATUS_DELETE,
+        ];
+        Db::transaction(function () use ($uid, $id,$storeOrderStatusRepository,$orderStatus) {
             $this->dao->userDel($uid, $id);
-            $make = app()->make(StoreRefundStatusRepository::class);
-            $make->status($id, $make::CHANGE_DELETE, '删除记录');
+            $storeOrderStatusRepository->createUserLog($orderStatus);
         });
     }
 
@@ -182,7 +191,7 @@ class StoreRefundOrderRepository extends BaseRepository
         $data['order_id'] = $products[0]['order_id'];
         $data['uid'] = $products[0]['uid'];
         $data['mer_id'] = $order['mer_id'];
-        $data['refund_order_sn'] = $this->getNewOrderId();
+        $data['refund_order_sn'] = app()->make(StoreOrderRepository::class)->getNewOrderId(StoreOrderRepository::TYPE_SN_REFUND);
         $data['refund_num'] = $totalRefundNum;
         $data['extension_one'] = $total_extension_one;
         $data['extension_two'] = $total_extension_two;
@@ -190,7 +199,10 @@ class StoreRefundOrderRepository extends BaseRepository
         $data['integral'] = $totalIntegral;
         $data['platform_refund_price'] = $totalPlatformRefundPrice;
         $data['refund_postage'] = $totalPostage;
-        return Db::transaction(function () use ($refundProduct, $data, $products, $order, &$refund_order_id) {
+        //退款订单记录
+        $storeOrderStatusRepository = app()->make(StoreOrderStatusRepository::class);
+
+        return Db::transaction(function () use ($refundProduct, $data, $products, $order, &$refund_order_id,$storeOrderStatusRepository,$refund_message) {
             event('refund.creates.before', compact('data'));
             $refund = $this->dao->create($data);
             $refund_order_id = $refund->refund_order_id;
@@ -199,8 +211,14 @@ class StoreRefundOrderRepository extends BaseRepository
                 $product->is_refund = 1;
                 $product->save();
             }
-            $statusRepository = app()->make(StoreRefundStatusRepository::class);
-            $statusRepository->status($refund->refund_order_id, $statusRepository::CHANGE_CREATE, '创建批量退款单');
+            $orderStatus = [
+                'order_id' => $refund->refund_order_id,
+                'order_sn' => $order->refund_order_sn,
+                'type' => $storeOrderStatusRepository::TYPE_REFUND,
+                'change_message' => $refund_message,
+                'change_type' => $storeOrderStatusRepository::ORDER_STATUS_CREATE,
+            ];
+            $storeOrderStatusRepository->createSysLog($orderStatus);
             app()->make(StoreRefundProductRepository::class)->insertAll($refundProduct);
             return $refund;
         });
@@ -304,7 +322,7 @@ class StoreRefundOrderRepository extends BaseRepository
         $data['order_id'] = $products[0]['order_id'];
         $data['uid'] = $products[0]['uid'];
         $data['mer_id'] = $order['mer_id'];
-        $data['refund_order_sn'] = $this->getNewOrderId();
+        $data['refund_order_sn'] = app()->make(StoreOrderRepository::class)->getNewOrderId(StoreOrderRepository::TYPE_SN_REFUND);
         $data['refund_num'] = $totalRefundNum;
         $data['extension_one'] = $total_extension_one;
         $data['extension_two'] = $total_extension_two;
@@ -312,6 +330,7 @@ class StoreRefundOrderRepository extends BaseRepository
         $data['integral'] = $totalIntegral;
         $data['platform_refund_price'] = $totalPlatformRefundPrice;
         $data['refund_postage'] = $totalPostage;
+
         return Db::transaction(function () use ($refundProduct, $data, $products, $order, &$refund_order_id) {
             event('refund.creates.before', compact('data'));
             $refund = $this->dao->create($data);
@@ -321,8 +340,6 @@ class StoreRefundOrderRepository extends BaseRepository
                 $product->is_refund = 1;
                 $product->save();
             }
-            $statusRepository = app()->make(StoreRefundStatusRepository::class);
-            $statusRepository->status($refund->refund_order_id, $statusRepository::CHANGE_CREATE, '创建批量退款单');
             app()->make(StoreRefundProductRepository::class)->insertAll($refundProduct);
             $this->applyRefundAfter($refund, $order);
             return $refund;
@@ -332,6 +349,24 @@ class StoreRefundOrderRepository extends BaseRepository
     public function applyRefundAfter($refund, $order)
     {
         event('refund.create', compact('refund', 'order'));
+        //退款订单记录
+        $storeOrderStatusRepository = app()->make(StoreOrderStatusRepository::class);
+        $orderStatus = [
+            'order_id' => $refund->refund_order_id,
+            'order_sn' => $refund->refund_order_sn,
+            'type' => $storeOrderStatusRepository::TYPE_REFUND,
+            'change_message' => '创建退款单',
+            'change_type' => $storeOrderStatusRepository::ORDER_STATUS_CREATE,
+        ];
+        $storeOrderStatusRepository->createUserLog($orderStatus);
+        $orderStatus = [
+            'order_id' => $order->order_id,
+            'order_sn' => $order->order_sn,
+            'type' => $storeOrderStatusRepository::TYPE_ORDER,
+            'change_message' => '申请退款',
+            'change_type' => $storeOrderStatusRepository::CHANGE_REFUND_CREATGE,
+        ];
+        $storeOrderStatusRepository->createUserLog($orderStatus);
         Queue::push(SendSmsJob::class, ['tempId' => 'ADMIN_RETURN_GOODS_CODE', 'id' => $refund->refund_order_id]);
         SwooleTaskService::merchant('notice', [
             'type' => 'new_refund_order',
@@ -424,10 +459,11 @@ class StoreRefundOrderRepository extends BaseRepository
 
         $data['uid'] = $product['uid'];
         $data['mer_id'] = $order['mer_id'];
-        $data['refund_order_sn'] = $this->getNewOrderId();
+        $data['refund_order_sn'] = app()->make(StoreOrderRepository::class)->getNewOrderId(StoreOrderRepository::TYPE_SN_REFUND);
         $data['refund_num'] = $num;
         $data['extension_one'] = $total_extension_one;
         $data['extension_two'] = $total_extension_two;
+
         return Db::transaction(function () use ($order, $data, $product, $productId, $num) {
             event('refund.create.before', compact('data'));
             $refund = $this->dao->create($data);
@@ -443,26 +479,12 @@ class StoreRefundOrderRepository extends BaseRepository
             $product->refund_num -= $num;
             $product->is_refund = 1;
             $product->save();
-            $statusRepository = app()->make(StoreRefundStatusRepository::class);
-            $statusRepository->status($refund->refund_order_id, $statusRepository::CHANGE_CREATE, '创建退款单');
             $this->applyRefundAfter($refund, $order);
             return $refund;
         });
     }
 
 
-    /**
-     * @return string
-     * @author xaboy
-     * @day 2020/6/9
-     */
-    public function getNewOrderId()
-    {
-        list($msec, $sec) = explode(' ', microtime());
-        $msectime = number_format((floatval($msec) + floatval($sec)) * 1000, 0, '', '');
-        $orderId = 'rwx' . $msectime . mt_rand(10000, max(intval($msec * 10000) + 10000, 98369));
-        return $orderId;
-    }
 
     /**
      * @param array $where
@@ -680,10 +702,19 @@ class StoreRefundOrderRepository extends BaseRepository
             throw new ValidateException('退款单状态有误');
         $refund->status = 2;
         $refund->status_time = date('Y-m-d H:i:s');
-        Db::transaction(function () use ($refund, $data, $id, $uid) {
+
+        //退款订单记录
+        $storeOrderStatusRepository = app()->make(StoreOrderStatusRepository::class);
+        $orderStatus = [
+            'order_id' => $refund->refund_order_id,
+            'order_sn' => $refund->refund_order_sn,
+            'type' => $storeOrderStatusRepository::TYPE_REFUND,
+            'change_message' => '退款单退回商品已发货',
+            'change_type' => $storeOrderStatusRepository::CHANGE_BACK_GOODS,
+        ];
+        Db::transaction(function () use ($refund, $data, $id, $uid,$storeOrderStatusRepository,$orderStatus) {
             $refund->save($data);
-            $statusRepository = app()->make(StoreRefundStatusRepository::class);
-            $statusRepository->status($id, $statusRepository::CHANGE_BACK_GOODS, '已发货');
+            $storeOrderStatusRepository->createUserLog($orderStatus);
             event('refund.backGoods',compact('uid','id','data'));
         });
         Queue::push(SendSmsJob::class, [
@@ -754,17 +785,41 @@ class StoreRefundOrderRepository extends BaseRepository
      * @author Qinii
      * @day 2020-06-13
      */
-    public function refuse($id, $data)
+    public function refuse($id, $data, $service_id = 0)
     {
-        Db::transaction(function () use ($id, $data) {
-            $res = $this->getWhere(['refund_order_id' => $id], '*', ['refundProduct.product']);
+        $refund = $this->getWhere(['refund_order_id' => $id], '*', ['refundProduct.product']);
+        //退款订单记录
+        $storeOrderStatusRepository = app()->make(StoreOrderStatusRepository::class);
+        $orderStatus = [
+            'order_id' => $refund->order_id,
+            'order_sn' => $refund->order->order_sn,
+            'type' => $storeOrderStatusRepository::TYPE_ORDER,
+            'change_message' => '订单退款已拒绝:'.$refund->refund_order_sn,
+            'change_type' => $storeOrderStatusRepository::CHANGE_REFUND_REFUSE,
+        ];
+        $refundOrderStatus = [
+            'order_id' => $refund->refund_order_id,
+            'order_sn' => $refund->refund_order_sn,
+            'type' => $storeOrderStatusRepository::TYPE_REFUND,
+            'change_message' => '订单退款已拒绝',
+            'change_type' => $storeOrderStatusRepository::CHANGE_REFUND_REFUSE,
+        ];
+
+        Db::transaction(function () use ($id, $data,$refund,$service_id,$storeOrderStatusRepository,$orderStatus,$refundOrderStatus) {
+
             $data['status_time'] = date('Y-m-d H:i:s');
-            $this->getProductRefundNumber($res, -1);
+            $this->getProductRefundNumber($refund, -1);
             $this->dao->update($id, $data);
-            $refund = $res;
+
+            if ($service_id) {
+                $storeOrderStatusRepository->createServiceLog($service_id,$orderStatus);
+                $storeOrderStatusRepository->createServiceLog($service_id,$refundOrderStatus);
+            } else {
+                $storeOrderStatusRepository->createAdminLog($orderStatus);
+                $storeOrderStatusRepository->createAdminLog($refundOrderStatus);
+            }
+
             event('refund.refuse',compact('id','refund'));
-            $statusRepository = app()->make(StoreRefundStatusRepository::class);
-            $statusRepository->status($id, $statusRepository::CHANGE_REFUND_REFUSE, '订单退款已拒绝');
             Queue::push(SendSmsJob::class, ['tempId' => 'REFUND_FAIL_CODE', 'id' => $id]);
         });
     }
@@ -778,31 +833,43 @@ class StoreRefundOrderRepository extends BaseRepository
      * @author Qinii
      * @day 2020-06-13
      */
-    public function agree(int $id, array $data, int $adminId)
+    public function agree(int $id, array $data, $service_id = 0)
     {
+
         //已退款金额
         $_refund_price = $this->checkRefundPrice($id);
 
-        Db::transaction(function () use ($id, $data, $adminId, $_refund_price) {
-            $res = $this->dao->getWhere(['refund_order_id' => $id], '*', ['refundProduct.product']);
-            $this->getProductRefundNumber($res, 1);
-            $refund = $res;
-            if ($res['refund_type'] == 1) {
+        $refund = $this->dao->getWhere(['refund_order_id' => $id], '*', ['refundProduct.product']);
+        //退款订单记录
+        $storeOrderStatusRepository = app()->make(StoreOrderStatusRepository::class);
+        $orderStatus = [
+            'order_id' => $refund->refund_order_id,
+            'order_sn' => $refund->refund_order_sn,
+            'type' => $storeOrderStatusRepository::TYPE_REFUND,
+        ];
+        Db::transaction(function () use ($id, $data, $_refund_price, $refund,$storeOrderStatusRepository,$orderStatus,$service_id) {
+            $this->getProductRefundNumber($refund, 1);
+            if ($refund['refund_type'] == 1) {
                 //TODO 退款单同意退款
                 $refund = $this->doRefundPrice($id, $_refund_price);
                 $data['status'] = 3;
-                $statusRepository = app()->make(StoreRefundStatusRepository::class);
-                $statusRepository->status($id, $statusRepository::CHANGE_REFUND_PRICE, '退款成功');
+                $orderStatus['change_message'] = '退款成功';
+                $orderStatus['change_type'] = $storeOrderStatusRepository::ORDER_STATUS_CREATE;
                 $this->refundAfter($refund);
             }
-            if ($res['refund_type'] == 2) {
+            if ($refund['refund_type'] == 2) {
                 $data['status'] = 1;
-                $statusRepository = app()->make(StoreRefundStatusRepository::class);
-                $statusRepository->status($id, $statusRepository::CHANGE_REFUND_AGREE, '退款申请已通过，请将商品寄回');
+                $orderStatus['change_message'] = '退款申请已通过，请将商品寄回';
+                $orderStatus['change_type'] = $storeOrderStatusRepository::CHANGE_REFUND_AGREE;
                 Queue::push(SendSmsJob::class, ['tempId' => 'REFUND_SUCCESS_CODE', 'id' => $id]);
             }
             $data['status_time'] = date('Y-m-d H:i:s');
             $this->dao->update($id, $data);
+            if ($service_id) {
+                $storeOrderStatusRepository->createServiceLog($service_id,$orderStatus);
+            } else {
+                $storeOrderStatusRepository->createAdminLog($orderStatus);
+            }
             event('refund.agree', compact('id', 'refund'));
         });
     }
@@ -870,6 +937,7 @@ class StoreRefundOrderRepository extends BaseRepository
             'type' => 1,
             'order_id' => $orderId,
         ];
+
         return $this->dao->search($where)->when($refundOrderId, function ($query) use ($refundOrderId) {
             $query->where('refund_order_id', '<>', $refundOrderId);
         })->column('refund_order_id');
@@ -1079,16 +1147,28 @@ class StoreRefundOrderRepository extends BaseRepository
      * @author Qinii
      * @day 2020-06-13
      */
-    public function adminRefund($id, $admin)
+    public function adminRefund($id, $service_id = null)
     {
-        Db::transaction(function () use ($admin, $id) {
+        $refund = $this->dao->getWhere(['refund_order_id' => $id], '*', ['refundProduct.product']);
+        //退款订单记录
+        $storeOrderStatusRepository = app()->make(StoreOrderStatusRepository::class);
+        $orderStatus = [
+            'order_id' => $refund->refund_order_id,
+            'order_sn' => $refund->refund_order_sn,
+            'type' => $storeOrderStatusRepository::TYPE_REFUND,
+            'change_message' => '退款成功',
+            'change_type' => $storeOrderStatusRepository::CHANGE_REFUND_PRICE,
+        ];
+        Db::transaction(function () use ($service_id, $id,$refund,$storeOrderStatusRepository,$orderStatus) {
             $data['status'] = 3;
             $data['status_time'] = date('Y-m-d H:i:s');
-            $statusRepository = app()->make(StoreRefundStatusRepository::class);
-            $statusRepository->status($id, $statusRepository::CHANGE_REFUND_PRICE, '退款成功' . ($admin ? '' : '[自动]'));
             $this->dao->update($id, $data);
-            $res = $this->dao->getWhere(['refund_order_id' => $id], '*', ['refundProduct.product']);
-            $this->getProductRefundNumber($res, 1, true);
+            if ($service_id) {
+                $storeOrderStatusRepository->createServiceLog($service_id,$orderStatus);
+            } else {
+                $storeOrderStatusRepository->createAdminLog($orderStatus);
+            }
+            $this->getProductRefundNumber($refund, 1, true);
             $refund = $this->doRefundPrice($id, 0);
             if ($refund) $this->refundAfter($refund);
         });
@@ -1134,7 +1214,10 @@ class StoreRefundOrderRepository extends BaseRepository
                     'data' => [
                         'refund_id' => $res->refund_order_sn,
                         'pay_price' => $res->order->groupOrder->pay_price,
-                        'refund_price' => $res->refund_price
+                        'refund_price' => $res->refund_price,
+                        'refund_message' => $res->refund_message,
+                        'open_id' => $res->user->wechat->routine_openid ?? null,
+                        'transaction_id' => $res->order->transaction_id,
                     ]
                 ];
             }
@@ -1469,15 +1552,25 @@ class StoreRefundOrderRepository extends BaseRepository
     public function cancel(int $id, $user)
     {
         //状态 0:待审核 -1:审核未通过 1:待退货 2:待收货 3:已退款
-        $res = $this->dao->getWhere(['refund_order_id' => $id, 'uid' => $user->uid],'*', ['refundProduct.product']);
-        if (!$res) throw new ValidateException('数据不存在');
-        if (!in_array($res['status'],[self::REFUND_STATUS_WAIT, self::REFUND_STATUS_BACK]))
+        $refund = $this->dao->getWhere(['refund_order_id' => $id, 'uid' => $user->uid],'*', ['refundProduct.product']);
+        if (!$refund) throw new ValidateException('数据不存在');
+        if (!in_array($refund['status'],[self::REFUND_STATUS_WAIT, self::REFUND_STATUS_BACK]))
             throw new ValidateException('当前状态不可取消');
-        Db::transaction(function () use ($id, $res) {
-            $this->getProductRefundNumber($res, -1);
+
+        //退款订单记录
+        $storeOrderStatusRepository = app()->make(StoreOrderStatusRepository::class);
+        $orderStatus = [
+            'order_id' => $refund->refund_order_id,
+            'order_sn' => $refund->refund_order_sn,
+            'type' => $storeOrderStatusRepository::TYPE_REFUND,
+            'change_message' => '用户取消退款',
+            'change_type' => $storeOrderStatusRepository::CHANGE_REFUND_CANCEL,
+        ];
+
+        Db::transaction(function () use ($id, $refund,$storeOrderStatusRepository,$orderStatus) {
+            $this->getProductRefundNumber($refund, -1);
             $this->dao->update($id, ['status_time' => date('Y-m-d H:i:s'), 'status' => self::REFUND_STATUS_CANCEL]);
-            $statusRepository = app()->make(StoreRefundStatusRepository::class);
-            $statusRepository->status($id, $statusRepository::CHANGE_REFUND_CANCEL, '用户取消退款');
+            $storeOrderStatusRepository->createUserLog($orderStatus);
         });
     }
 }

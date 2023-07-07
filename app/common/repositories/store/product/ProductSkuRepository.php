@@ -24,6 +24,7 @@ class ProductSkuRepository extends BaseRepository
         $this->dao = $dao;
     }
 
+    const ACTIVE_TYPE_DISCOUNTS = 10;
     public function save(int $id, int $productId, array $data, $activeProductId = 0)
     {
         $storeProductServices = app()->make(ProductAttrValueRepository::class);
@@ -34,7 +35,7 @@ class ProductSkuRepository extends BaseRepository
                 'active_id'     => $id,
                 'active_product_id' => $activeProductId,
                 'product_id'    => $productId,
-                'active_type'   => 10,
+                'active_type'   => self::ACTIVE_TYPE_DISCOUNTS,
                 'price'         => $skuData['price'],
                 'active_price'  => $item['active_price'] ?? $skuData['price'],
                 'unique'        => $item['unique'],

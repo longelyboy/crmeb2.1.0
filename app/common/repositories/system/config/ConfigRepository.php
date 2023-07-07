@@ -108,17 +108,18 @@ class ConfigRepository extends BaseRepository
 
         if ($config['required']) $component->required();
 
-        $component->appendRule('suffix', [
-            'type' => 'div',
-            'style' => ['color' => '#999999'],
-            'domProps' => [
-                'innerHTML' => $config['info'],
-            ]
-        ]);
-
         if ($config['config_props'] ?? '') {
             $props = @parse_ini_string($config['config_props'], false, INI_SCANNER_TYPED);
             if (is_array($props)) {
+                $guidance_uri = $props['guidance_uri'] ?? '';
+                $guidance_image = $props['guidance_image'] ?? '';
+                if ($guidance_image) {
+                    $config['guidance'] = [
+                        'uri' => $guidance_uri,
+                        'image' => $guidance_image,
+                    ];
+                }
+                unset($props['guidance_image'], $props['guidance_uri']);
                 $component->props($props);
                 if (isset($props['required']) && $props['required']) {
                     $component->required();
@@ -127,6 +128,16 @@ class ConfigRepository extends BaseRepository
                     $component->value($props['defaultValue']);
                 }
             }
+        }
+        if ($config['info']) {
+            $component->appendRule('suffix', [
+                'type' => 'guidancePop',
+                'props' => [
+                    'info' => $config['info'],
+                    'url' => $config['guidance']['uri'] ?? '',
+                    'image' => $config['guidance']['image'] ?? '',
+                ]
+            ]);
         }
         return $component;
     }

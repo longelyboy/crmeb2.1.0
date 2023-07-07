@@ -124,7 +124,6 @@ class StoreCoupon extends BaseController
     {
         $where = $this->request->params(['type','mer_id', 'product','is_pc',['send_type',0]]);
         [$page, $limit] = $this->getPage();
-        $where['not_svip'] = 1;
         $data = $couponRepository->apiList($where, $page, $limit, $this->uid);
         return app('json')->success($data);
     }

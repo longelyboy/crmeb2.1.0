@@ -72,8 +72,8 @@ class ProductRepository extends BaseRepository
         ['svip_price_type',0],
         ['params',[]],
     ];
-    protected $admin_filed = 'Product.product_id,Product.mer_id,brand_id,spec_type,unit_name,mer_status,rate,reply_count,store_info,cate_id,Product.image,slider_image,Product.store_name,Product.keyword,Product.sort,U.rank,Product.is_show,Product.sales,Product.price,extension_type,refusal,cost,ot_price,stock,is_gift_bag,Product.care_count,Product.status,is_used,Product.create_time,Product.product_type,old_product_id,star,ficti,integral_total,integral_price_total,sys_labels,param_temp_id';
-    protected $filed = 'Product.product_id,Product.mer_id,brand_id,unit_name,spec_type,mer_status,rate,reply_count,store_info,cate_id,Product.image,slider_image,Product.store_name,Product.keyword,Product.sort,Product.is_show,Product.sales,Product.price,extension_type,refusal,cost,ot_price,stock,is_gift_bag,Product.care_count,Product.status,is_used,Product.create_time,Product.product_type,old_product_id,integral_total,integral_price_total,mer_labels,Product.is_good,Product.is_del,type,param_temp_id';
+    protected $admin_filed = 'Product.product_id,Product.mer_id,brand_id,spec_type,unit_name,mer_status,rate,reply_count,store_info,cate_id,Product.image,slider_image,Product.store_name,Product.keyword,Product.sort,U.rank,Product.is_show,Product.sales,Product.price,extension_type,refusal,cost,ot_price,stock,is_gift_bag,Product.care_count,Product.status,is_used,Product.create_time,Product.product_type,old_product_id,star,ficti,integral_total,integral_price_total,sys_labels,param_temp_id,mer_svip_status,svip_price,svip_price_type';
+    protected $filed = 'Product.product_id,Product.mer_id,brand_id,unit_name,spec_type,mer_status,rate,reply_count,store_info,cate_id,Product.image,slider_image,Product.store_name,Product.keyword,Product.sort,Product.is_show,Product.sales,Product.price,extension_type,refusal,cost,ot_price,stock,is_gift_bag,Product.care_count,Product.status,is_used,Product.create_time,Product.product_type,old_product_id,integral_total,integral_price_total,mer_labels,Product.is_good,Product.is_del,type,param_temp_id,mer_svip_status,svip_price,svip_price_type';
 
     const  NOTIC_MSG  = [
             1  => [
@@ -553,6 +553,7 @@ class ProductRepository extends BaseRepository
         $price = $stock = $ot_price = $cost = $svip_price = 0;
         try {
             foreach ($data['attrValue'] as $value) {
+                $_svip_price = 0;
                 $sku = '';
                 if (isset($value['detail']) && !empty($value['detail']) && is_array($value['detail'])) {
                     $sku = implode(',', $value['detail']);
@@ -568,9 +569,11 @@ class ProductRepository extends BaseRepository
                     $ot_price_ = $value['ot_price'];
                     $sprice = ($value['price'] < 0) ? 0 : $value['price'];
                 }
-                if (isset($value['svip_price']) && $data['svip_price_type']) {
+                if ($data['svip_price_type'] == 2) {
+                    $_svip_price = $value['svip_price'];
                     $svip_price = !$svip_price ?  $value['svip_price'] : (($svip_price > $value['svip_price']) ? $value['svip_price'] : $svip_price);
                 }
+
                 $cost   = !$cost ? $value['cost'] : (($cost > $value['cost']) ?$cost: $value['cost']);
                 $price  = !$price ? $sprice : (($price > $sprice) ? $sprice : $price);
                 $ot_price = !$ot_price ? $ot_price_ : (($ot_price > $ot_price_) ? $ot_price : $ot_price_);
@@ -593,7 +596,7 @@ class ProductRepository extends BaseRepository
                     "sku" => $sku,
                     "unique" => $unique,
                     'sales' => $isUpdate ? ($oldSku[$sku]['sales'] ?? 0) : 0,
-                    'svip_price' => $svip_price,
+                    'svip_price' => $_svip_price,
                 ];
                 $stock = $stock + intval($value['stock']);
             }
@@ -1347,6 +1350,8 @@ class ProductRepository extends BaseRepository
                     'check' => false
                 ];
             }
+            $attr[$key]['product_id'] = $item['product_id'];
+            $attr[$key]['attr_name'] = $item['attr_name'];
             $attr[$key]['attr_value'] = $arr;
             $attr[$key]['attr_values'] = $values;
         }
@@ -1547,7 +1552,7 @@ class ProductRepository extends BaseRepository
         if ($status == 1 && $product['product_type'] == 3)
             throw new ValidateException('商品正在参与助力活动');
         $this->dao->update($id,[$field => $status]);
-        app()->make(SpuRepository::class)->changeStatus($id,0);
+        app()->make(SpuRepository::class)->changeStatus($id,$product->product_type);
     }
 
     public function batchSwitchShow($id, $status, $field, $merId = 0)
@@ -1558,6 +1563,7 @@ class ProductRepository extends BaseRepository
         if (!$products)
             throw new ValidateException('数据不存在');
         foreach ($products as $product) {
+            $product_type = $product['product_type'];
             if ($merId && $product['mer_id'] !== $merId)
                 throw new ValidateException('商品不属于您');
             if ($status == 1 && $product['product_type'] == 2)
@@ -1566,7 +1572,7 @@ class ProductRepository extends BaseRepository
                 throw new ValidateException('ID：'.$product->product_id . ' 商品正在参与助力活动');
         }
         $this->dao->updates($id,[$field => $status]);
-        Queue::push(ChangeSpuStatusJob::class,['id' => $id,'product_type'=>0]);
+        Queue::push(ChangeSpuStatusJob::class,['id' => $id,'product_type'=> $product_type]);
     }
 
     /**
@@ -1581,7 +1587,6 @@ class ProductRepository extends BaseRepository
         $product = $this->getSearch([])->find($id);
         $this->dao->update($id, $data);
         $status = $data['status'];
-        $product_type = $product->product_type;
         $type = self::NOTIC_MSG[$data['status']][$product['product_type']];
         $message = '您有1个' . ($product['product_type'] ? '秒杀商品' : '商品') . self::NOTIC_MSG[$data['status']]['msg'];
         SwooleTaskService::merchant('notice', [
@@ -1592,7 +1597,7 @@ class ProductRepository extends BaseRepository
                 'id' => $product['product_id']
             ]
         ], $product['mer_id']);
-        app()->make(SpuRepository::class)->changeStatus($id,$product_type);
+        app()->make(SpuRepository::class)->changeStatus($id,$product->product_type);
     }
 
     /**
@@ -1607,6 +1612,7 @@ class ProductRepository extends BaseRepository
     {
         $productData = $this->getSearch([])->where('product_id','in', $id)->select();
         foreach ($productData as $product) {
+            $product_type = $product['product_type'];
             $type = self::NOTIC_MSG[$data['status']][$product['product_type']];
             $message = '您有1个' . ($product['product_type'] ? '秒杀商品' : '商品') . self::NOTIC_MSG[$data['status']]['msg'];
             SwooleTaskService::merchant('notice', [
@@ -1619,7 +1625,7 @@ class ProductRepository extends BaseRepository
             ], $product['mer_id']);
         }
         $this->dao->updates($id, $data);
-        Queue(ChangeSpuStatusJob::class, ['id' => $id, 'product_type' => $product['product_type']]);
+        Queue(ChangeSpuStatusJob::class, ['id' => $id, 'product_type' => $product_type]);
         event('product.status',compact('id','data'));
     }
 
@@ -1745,15 +1751,15 @@ class ProductRepository extends BaseRepository
         $form = Elm::createForm(Route::buildUrl('systemStoreProductAddFicti', ['id' => $id])->build());
         $res = $this->dao->getWhere(['product_id' => $id], 'ficti,sales');
         $form->setRule([
-            Elm::input('number', '现有虚拟销量', $res['ficti'])->readonly(true),
+            Elm::input('number', '现有已售数量', $res['ficti'])->readonly(true),
             Elm::radio('type', '修改类型', 1)
                 ->setOptions([
                     ['value' => 1, 'label' => '增加'],
                     ['value' => 2, 'label' => '减少'],
                 ]),
-            Elm::number('ficti', '修改虚拟销量数', 0),
+            Elm::number('ficti', '修改已售数量', 0),
         ]);
-        return $form->setTitle('修改虚拟销量数');
+        return $form->setTitle('修改已售数量');
     }
 
     /**
@@ -2159,7 +2165,7 @@ class ProductRepository extends BaseRepository
     {
         $data = $this->dao->getWhere(['product_id' => $id, 'mer_id' => $merId]);
         if (!$data) throw new ValidateException('数据不存在');
-        return app()->make(ProductAttrValueRepository::class)->getSearch(['product_id' => $id])->select();
+        return app()->make(ProductAttrValueRepository::class)->getSearch(['product_id' => $id])->select()->append(['is_svip_price']);
     }
 
     public function checkParams($data,$merId,$id = null)

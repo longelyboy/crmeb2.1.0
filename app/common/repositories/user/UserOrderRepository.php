@@ -17,6 +17,7 @@ namespace app\common\repositories\user;
 use app\common\dao\user\LabelRuleDao;
 use app\common\dao\user\UserOrderDao;
 use app\common\repositories\BaseRepository;
+use app\common\repositories\store\order\StoreOrderRepository;
 use app\common\repositories\system\groupData\GroupDataRepository;
 use crmeb\jobs\SendSmsJob;
 use crmeb\services\PayService;
@@ -60,20 +61,6 @@ class UserOrderRepository extends BaseRepository
     }
 
     /**
-     * TODO 获取订单号
-     * @return string
-     * @author Qinii
-     * @day 2022/11/12
-     */
-    public function setOrderSn()
-    {
-        list($msec, $sec) = explode(' ', microtime());
-        $msectime = number_format((floatval($msec) + floatval($sec)) * 1000, 0, '', '');
-        $orderId = 'wxs' . $msectime . mt_rand(10000, max(intval($msec * 10000) + 10000, 98369));
-        return $orderId;
-    }
-
-    /**
      * @param $data
      * @return mixed
      * @author xaboy
@@ -81,7 +68,7 @@ class UserOrderRepository extends BaseRepository
      */
     public function add($res, $user, $params)
     {
-        $order_sn = $this->setOrderSn();
+        $order_sn = app()->make(StoreOrderRepository::class)->getNewOrderId(StoreOrderRepository::TYPE_SN_USER_ORDER);
         $data = [
             'title'     => $res['value']['svip_name'],
             'link_id'   => $res->group_data_id,
@@ -108,7 +95,7 @@ class UserOrderRepository extends BaseRepository
         $info = $this->dao->create($data);
         if ($data['pay_price']){
             try {
-                $service = new PayService($type,$body);
+                $service = new PayService($type,$body, 'user_order');
                 $config = $service->pay($user);
                 return app('json')->status($type, $config + ['order_id' => $info->order_id]);
             } catch (\Exception $e) {
@@ -178,7 +165,7 @@ class UserOrderRepository extends BaseRepository
         $ret->end_time = $svip_endtime;
         $ret->save();
         $date = $info->svip_type == 3 ? '终身会员' : $svip_endtime;
-        Queue::push(SendSmsJob::class,['tempId' => 'SVIP_PAY_SUCCESS','id' => ['phone' => $user->phone, 'date' => $date]]);
+        if ($user->phone) Queue::push(SendSmsJob::class,['tempId' => 'SVIP_PAY_SUCCESS','id' => ['phone' => $user->phone, 'date' => $date]]);
         return ;
     }
 }

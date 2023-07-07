@@ -248,18 +248,6 @@ class Config extends BaseController
         return app('json')->success(['src' => $res]);
     }
 
-    /**
-     * TODO
-     * @author Qinii
-     * @day 2023/1/5
-     */
-    public function specificFileUpload()
-    {
-        $file = $this->request->file('file');
-        $type = $this->request->param('fiel_type');
-        halt($type,$file);
-    }
-
     public function uploadWechatSet()
     {
         $name =  $this->request->param('wechat_chekc_file');
@@ -343,7 +331,7 @@ class Config extends BaseController
     {
         $data['routine_name'] = systemConfig('routine_name');
         $data['routine_appId'] = systemConfig('routine_appId');
-        $data['url'] = 'https://wiki.crmeb.net/web/mer/mer/1771';
+        $data['url'] = 'https://doc.crmeb.com/mer/mer2/4491';
         $data['site_url'] = rtrim(systemConfig('site_url'), '/') . '/pages/index/index';
         return app('json')->success($data);
     }

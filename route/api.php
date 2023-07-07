@@ -117,7 +117,7 @@ Route::group('api/', function () {
             Route::post('/relation/create', 'UserRelation/create');
             Route::post('/relation/batch/create', 'UserRelation/batchCreate');
             Route::post('/relation/delete', 'UserRelation/delete');
-            Route::post('/relation/lst/delete', 'UserRelation/lstDelete');
+            Route::post('/relation/batch/delete', 'UserRelation/batchDelete');
 
             //反馈
             Route::post('/feedback', 'Feedback/feedback');
@@ -380,7 +380,7 @@ Route::group('api/', function () {
         Route::get('service/info/:id', 'api.store.service.Service/merchantInfo');
         //公共配置
         Route::get('config', 'api.Common/config');
-
+        Route::get('has_service/:id','api.store.service.Service/hasService');
         //专题
         Route::group('activity', function () {
             Route::get('lst/:id', 'api.Common/activityLst');

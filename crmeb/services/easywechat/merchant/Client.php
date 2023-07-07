@@ -12,17 +12,6 @@
 namespace crmeb\services\easywechat\merchant;
 
 use crmeb\services\easywechat\BaseClient;
-use EasyWeChat\Core\AbstractAPI;
-use EasyWeChat\Core\AccessToken;
-use EasyWeChat\Core\Exceptions\HttpException;
-use EasyWeChat\Core\Http;
-use EasyWeChat\Payment\API;
-use EasyWeChat\Payment\Merchant;
-use GuzzleHttp\HandlerStack;
-use think\Exception;
-use EasyWeChat\Support\XML;
-use EasyWeChat\Support\Collection;
-use Psr\Http\Message\ResponseInterface;
 use think\exception\ValidateException;
 
 /**

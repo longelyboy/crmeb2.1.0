@@ -49,7 +49,7 @@ class StoreProduct extends BaseController
     public function lst()
     {
         [$page, $limit] = $this->getPage();
-        $where = $this->request->params(['cate_id', 'keyword', ['type', 1], 'mer_cate_id', 'pid','store_name','is_trader','us_status','product_id','star','sys_labels','hot_type']);
+        $where = $this->request->params(['cate_id', 'keyword', ['type', 1], 'mer_cate_id', 'pid','store_name','is_trader','us_status','product_id','star','sys_labels','hot_type','svip_price_type']);
         $mer_id = $this->request->param('mer_id','');
         $merId = $mer_id ? $mer_id : null;
         $where['is_gift_bag'] = 0;
@@ -207,10 +207,10 @@ class StoreProduct extends BaseController
     {
         $data = $this->request->params(['type','ficti']);
         if(!in_array($data['type'],[1,2])) return app('json')->fail('类型错误');
-        if(!$data['ficti'] || $data['ficti'] < 0) return app('json')->fail('虚拟销量必须大于0');
+        if(!$data['ficti'] || $data['ficti'] < 0) return app('json')->fail('已售数量必须大于0');
         $res = $this->repository->getWhere(['product_id' => $id],'ficti,sales');
         if(!$res) return app('json')->fail('数据不存在');
-        if($data['type'] == 2 && $res['ficti'] < $data['ficti']) return app('json')->fail('虚拟销量不足');
+        if($data['type'] == 2 && $res['ficti'] < $data['ficti']) return app('json')->fail('已售数量不足');
         $ficti = ($data['type'] == 1) ? $data['ficti'] : '-' . $data['ficti'];
         $data = [
             'ficti' => $res['ficti'] + $ficti,

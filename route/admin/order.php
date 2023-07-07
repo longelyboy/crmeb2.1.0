@@ -39,6 +39,9 @@ Route::group(function () {
         Route::get('status/:id', 'Order/status')->name('systemOrderStatus')->option([
             '_alias' => '记录',
         ]);
+        Route::get('children/:id', 'Order/childrenList')->name('systemOrderChildrenList')->option([
+            '_alias' => '关联订单',
+        ]);
     })->prefix('admin.order.')->option([
         '_path' => '/order/list',
         '_auth' => true,

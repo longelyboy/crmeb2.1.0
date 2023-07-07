@@ -14,6 +14,7 @@ namespace app\controller\merchant\store\order;
 
 use app\common\repositories\store\ExcelRepository;
 use app\common\repositories\store\order\MerchantReconciliationRepository;
+use app\common\repositories\store\order\StoreOrderStatusRepository;
 use app\common\repositories\store\order\StoreRefundStatusRepository;
 use crmeb\services\ExcelService;
 use think\App;
@@ -82,7 +83,7 @@ class RefundOrder extends BaseController
             if ($data['phone'] && isPhone($data['phone']))
                 return app('json')->fail('请输入正确的手机号');
             $data['status'] = $status;
-            $this->repository->agree($id,$data,$this->request->adminId());
+            $this->repository->agree($id,$data);
         }else{
             $fail_message = $this->request->param('fail_message','');
             if($status == -1 && empty($fail_message))
@@ -105,7 +106,7 @@ class RefundOrder extends BaseController
     {
         if(!$this->repository->getRefundPriceExists($this->request->merId(),$id))
             return app('json')->fail('信息或状态错误');
-        $this->repository->adminRefund($id,$this->request->adminId());
+        $this->repository->adminRefund($id,0);
         return app('json')->success('退款成功');
     }
 
@@ -171,8 +172,11 @@ class RefundOrder extends BaseController
     public function log($id)
     {
         list($page,$limit) = $this->getPage();
-        $make = app()->make(StoreRefundStatusRepository::class);
-        return app('json')->success($make->search($id,$page,$limit));
+        $where = $this->request->params(['date','user_type']);
+        $where['id'] = $id;
+        $where['type'] = StoreOrderStatusRepository::TYPE_REFUND;
+        $data = app()->make(StoreOrderStatusRepository::class)->search($where,$page,$limit);
+        return app('json')->success($data);
     }
 
     public function reList($id)

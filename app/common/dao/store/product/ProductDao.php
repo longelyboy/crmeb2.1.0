@@ -138,11 +138,6 @@ class ProductDao extends BaseDao
                 else if ($where['hot_type'] == 'good')
                     $query->where('is_benefit', 1);
             })
-            ->when(isset($where['pid']) && $where['pid'] !== '', function ($query) use ($where) {
-                $storeCategoryRepository = app()->make(StoreCategoryRepository::class);
-                $ids = array_merge($storeCategoryRepository->findChildrenId((int)$where['pid']), [(int)$where['pid']]);
-                if (count($ids)) $query->whereIn('cate_id', $ids);
-            })
             ->when(isset($where['us_status']) && $where['us_status'] !== '', function ($query) use ($where) {
                 if ($where['us_status'] == 0) {
                     $query->where('Product.is_show', 0)->where('Product.is_used', 1)->where('Product.status',1);
@@ -161,6 +156,9 @@ class ProductDao extends BaseDao
             })
             ->when(isset($where['sys_labels']) && $where['sys_labels'] !== '', function ($query) use ($where) {
                 $query->whereLike('U.sys_labels', "%,{$where['sys_labels']},%");
+            })
+            ->when(isset($where['svip_price_type']) && $where['svip_price_type'] !== '', function ($query) use ($where) {
+                $query->where('Product.svip_price_type',$where['svip_price_type']);
             })
             ->when(isset($where['order']), function ($query) use ($where, $merId) {
                 if(in_array($where['order'], ['is_new', 'price_asc', 'price_desc', 'rate', 'sales']) ){
@@ -391,10 +389,11 @@ class ProductDao extends BaseDao
      * @author Qinii
      * @day 2020-07-09
      */
-    public function decCareCount(int $productId)
+    public function decCareCount(array $productId)
     {
-        ($this->getModel()::getDB())->where($this->getPk(), $productId)->where('care_count', '>', 0)->dec('care_count', 1)->update();
+        ($this->getModel()::getDB())->whereIn($this->getPk(), $productId)->where('care_count', '>', 0)->dec('care_count', 1)->update();
     }
+
 
     /**
      * TODO api展示的商品条件

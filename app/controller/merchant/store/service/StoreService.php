@@ -188,7 +188,7 @@ class StoreService extends BaseController
         $status = $this->request->param('status');
         if (!$this->repository->merExists($this->request->merId(), $id))
             return app('json')->fail('数据不存在');
-        $this->repository->update($id, ['status' => $status == 1 ? 1 : 0]);
+        $this->repository->update($id, ['is_open' => $status == 1 ? 1 : 0]);
         return app('json')->success('修改成功');
     }
 

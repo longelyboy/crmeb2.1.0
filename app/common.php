@@ -1023,14 +1023,15 @@ if (!function_exists('filter_emoji')) {
     }
 }
 
-/**
- * 高德经纬度改百度经纬度
- * @param $lng 经度
- * @param $lat 纬度
- * @return mixed
+/*
+ * TODO 腾讯地图转换百度地图 GCJ02 转 BD09
+ * 中国正常GCJ02坐标---->百度地图BD09坐标
+ * 腾讯地图/高德地图用的也是GCJ02坐标
+ * @param double $lat 纬度
+ * @param double $lng 经度
  */
-if (!function_exists('bd_encrypt')) {
-    function bd_encrypt($lng, $lat)
+if (!function_exists('gcj02ToBd09')) {
+    function gcj02ToBd09($lng, $lat)
     {
         $x_pi = 3.14159265358979324 * 3000.0 / 180.0;
         $x = $lng;
@@ -1038,9 +1039,9 @@ if (!function_exists('bd_encrypt')) {
         $z = sqrt($x * $x + $y * $y) - 0.00002 * sin($y * $x_pi);
         $theta = atan2($y, $x) - 0.000003 * cos($x * $x_pi);
 
-        $data['lng'] = $z * cos($theta) + 0.0065;
-        $data['lat'] = $z * sin($theta) + 0.006;
-        return $data;
+        $lng = $z * cos($theta) + 0.0065;
+        $lat = $z * sin($theta) + 0.006;
+        return [$lng,$lat];
     }
 }
 
@@ -1130,18 +1131,21 @@ if (!function_exists('checkSuffix')) {
     function checkSuffix($data)
     {
         $suffix = \think\facade\Config::get('upload.fileExt');
-
         if (is_array($data)){
             foreach ($data as $datum) {
+                if (strpos($datum,'phar://') !== false)
+                    throw new \think\exception\ValidateException('操作失败');
                 $result = pathinfo($datum);
                 if (isset($result['extension']) && !in_array($result['extension'],$suffix)) {
-                    throw new \think\exception\ValidateException('上传文件后缀不允许');
+                    throw new \think\exception\ValidateException('文件后缀不允许');
                 }
             }
         } else {
+            if (strpos($data,'phar://') !== false )
+                throw new \think\exception\ValidateException('操作失败');
             $result = pathinfo($data);
             if (isset($result['extension']) && !in_array($result['extension'],$suffix)) {
-                throw new \think\exception\ValidateException('上传文件后缀不允许');
+                throw new \think\exception\ValidateException('文件后缀不允许');
             }
         }
         return ;

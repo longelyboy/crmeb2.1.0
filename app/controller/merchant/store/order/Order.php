@@ -236,7 +236,6 @@ class Order extends BaseController
         ];
         if ($params['delivery_type'] == 4 && !systemConfig('crmeb_serve_dump'))
             return app('json')->fail('电子面单功能未开启');
-        $this->repository->batchDelivery($data['mer_id'],$data['data']);
         Queue::push(BatchDeliveryJob::class, $data);
         return app('json')->success('开始批量发货');
     }
@@ -295,9 +294,11 @@ class Order extends BaseController
     public function status($id)
     {
         [$page, $limit] = $this->getPage();
+        $where = $this->request->params(['date','user_type']);
+        $where['id'] = $id;
         if (!$this->repository->getOne($id, $this->request->merId()))
             return app('json')->fail('数据不存在');
-        return app('json')->success($this->repository->getOrderStatus($id, $page, $limit));
+        return app('json')->success($this->repository->getOrderStatus($where, $page, $limit));
     }
 
     /**
@@ -447,6 +448,11 @@ class Order extends BaseController
         [$page, $limit] = $this->getPage();
         $data = app()->make(ExcelService::class)->delivery($where,$page,$limit);
         return app('json')->success($data);
+    }
 
+    public function childrenList($id)
+    {
+        $data = $this->repository->childrenList($id, $this->request->merId());
+        return app('json')->success($data);
     }
 }

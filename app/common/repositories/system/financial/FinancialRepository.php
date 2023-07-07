@@ -128,7 +128,7 @@ class FinancialRepository extends BaseRepository
                 'type' => 'span',
                 'title' => '商户名称:',
                 'native' => false,
-                'children' => [$merchant->mer_name]
+                'children' => ["$merchant->mer_name"]
             ],
             [
                 'type' => 'span',
@@ -151,13 +151,13 @@ class FinancialRepository extends BaseRepository
                 'type' => 'span',
                 'title' => '商户余额:',
                 'native' => false,
-                'children' => [$merchant->mer_money]
+                'children' => ["$merchant->mer_money"]
             ],
             [
                 'type' => 'span',
                 'native' => false,
                 'title' => '商户可提现金额:',
-                'children' => [$_extract]
+                'children' => ["$_extract"]
             ],
 
             Elm::radio('financial_type', '转账类型:', $merchant->financial_type)

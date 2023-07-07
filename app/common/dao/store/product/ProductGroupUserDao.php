@@ -36,6 +36,6 @@ class ProductGroupUserDao extends  BaseDao
 
     public function groupOrderIds($productGroupId)
     {
-        return ProductGroupUser::getDB()->where('group_buying_id', $productGroupId)->where('order_id', '>', 0)->column('order_id');
+        return ProductGroupUser::getDB()->where('group_buying_id', $productGroupId)->where('order_id', '>', 0)->select();
     }
 }

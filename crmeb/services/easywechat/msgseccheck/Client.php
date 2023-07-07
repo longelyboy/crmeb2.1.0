@@ -32,6 +32,8 @@ use think\exception\ValidateException;
  */
 class Client extends BaseClient
 {
+    protected $isService = false;
+
     const MSG_API = 'https://api.weixin.qq.com/wxa/msg_sec_check?access_token=';
     const MEDIA_API = 'https://api.weixin.qq.com/wxa/media_check_async?access_token=';
     const LABEL = [

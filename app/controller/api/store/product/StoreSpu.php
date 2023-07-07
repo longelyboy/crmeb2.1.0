@@ -271,12 +271,14 @@ class StoreSpu extends BaseController
         $data = [];
         foreach ($cateId as $cate_id) {
             $cate = app()->make(StoreCategoryRepository::class)->get($cate_id);
-            $list = $this->repository->getHotRanking($cate_id);
-            $data[] = [
-                'cate_id' => $cate['store_category_id'] ?? 0,
-                'cate_name' => $cate['cate_name'] ?? '总榜',
-                'list' => $list,
-            ];
+            if ($cate) {
+                $list = $this->repository->getHotRanking($cate_id);
+                $data[] = [
+                    'cate_id' => $cate['store_category_id'] ?? 0,
+                    'cate_name' => $cate['cate_name'] ?? '总榜',
+                    'list' => $list,
+                ];
+            }
         }
         return app('json')->success($data);
     }

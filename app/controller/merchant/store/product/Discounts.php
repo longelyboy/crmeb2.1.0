@@ -120,9 +120,9 @@ class Discounts extends BaseController
         }
         foreach ($data['products'] as $item) {
             if (!isset($item['items']))
-                return app('json')->fail('请选择' . $item['store_name'] . '的规格');
+                throw new ValidateException('请选择' . $item['store_name'] . '的规格');
             foreach ($item['attr'] as $attr) {
-                if($attr['active_price'] > $attr['price']) return app('json')->fail('套餐价格高于原价');
+                if($attr['active_price'] > $attr['price']) throw new ValidateException('套餐价格高于原价');
             }
         }
         $data['mer_id'] = $this->request->merId();

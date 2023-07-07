@@ -210,6 +210,7 @@ class StoreOrderCreateRepository extends StoreOrderRepository
 
                 if ($cart['product_type'] == 10 && $cart['productDiscountAttr']) {
                     $cart['productAttr']['price'] = $cart['productDiscountAttr']['active_price'];
+                    $cart['productAttr']['show_svip_price'] = false;
                 }
 
                 if ($cart['cart_num'] <= 0) {
@@ -225,7 +226,7 @@ class StoreOrderCreateRepository extends StoreOrderRepository
                 $total_num += $cart['cart_num'];
                 $_price = bcmul($cart['cart_num'], $this->cartByCouponPrice($cart), 2);
                 $cart['svip_coupon_merge'] = 1;
-                if ($cart['productAttr']['show_svip_price']) {
+                if ($cart['productAttr']['show_svip_price'] && !$cart['product_type']) {
                     $svip_discount = max(bcmul($cart['cart_num'], bcsub($cart['productAttr']['org_price'] ?? 0, $cart['productAttr']['price'], 2), 2), 0);
                     if ($svip_coupon_merge != '1') {
                         $_price = 0;
@@ -237,6 +238,8 @@ class StoreOrderCreateRepository extends StoreOrderRepository
                 $cart['allow_price'] = $_price;
                 $temp1 = $cart['product']['temp'];
                 $cart['temp_number'] = 0;
+                $total_svip_discount = bcadd($total_svip_discount, $svip_discount, 2);
+                $cart['svip_discount'] = $svip_discount;
 
                 if (!isset($product_cart[$cart['product_id']]))
                     $product_cart[$cart['product_id']] = [$cart['cart_id']];
@@ -313,8 +316,6 @@ class StoreOrderCreateRepository extends StoreOrderRepository
                 }
                 $postageRule[$tempId]['free'] = $freeRule;
                 $postageRule[$tempId]['region'] = $regionRule;
-                $total_svip_discount = bcadd($total_svip_discount, $svip_discount, 2);
-                $cart['svip_discount'] = $svip_discount;
             }
             unset($cart);
 
@@ -1066,7 +1067,7 @@ class StoreOrderCreateRepository extends StoreOrderRepository
                 'is_virtual' => $order_model ? 1 : 0,
                 'extension_one' => $total_extension_one,
                 'extension_two' => $total_extension_two,
-                'order_sn' => $this->getNewOrderId() . ($k + 1),
+                'order_sn' => $this->getNewOrderId(StoreOrderRepository::TYPE_SN_ORDER) . ($k + 1),
                 'uid' => $uid,
                 'spread_uid' => $spreadUid,
                 'top_uid' => $topUid,
@@ -1101,7 +1102,7 @@ class StoreOrderCreateRepository extends StoreOrderRepository
         }
         $groupOrder = [
             'uid' => $uid,
-            'group_order_sn' => count($orderList) === 1 ? $orderList[0]['order_sn'] : ($this->getNewOrderId() . '0'),
+            'group_order_sn' => count($orderList) === 1 ? $orderList[0]['order_sn'] : ($this->getNewOrderId(StoreOrderRepository::TYPE_SN_ORDER) . '0'),
             'total_postage' => $totalPostage,
             'total_price' => $orderInfo['total_price'],
             'total_num' => $totalNum,
@@ -1127,6 +1128,7 @@ class StoreOrderCreateRepository extends StoreOrderRepository
             $productRepository = app()->make(ProductRepository::class);
             $storeOrderProductRepository = app()->make(StoreOrderProductRepository::class);
             $couponUserRepository = app()->make(StoreCouponUserRepository::class);
+            //订单记录
             $storeOrderStatusRepository = app()->make(StoreOrderStatusRepository::class);
             $userMerchantRepository = app()->make(UserMerchantRepository::class);
 
@@ -1237,8 +1239,13 @@ class StoreOrderCreateRepository extends StoreOrderRepository
 
                 $orderStatus[] = [
                     'order_id' => $_order->order_id,
+                    'order_sn' => $_order->order_sn,
+                    'type' => $storeOrderStatusRepository::TYPE_ORDER,
                     'change_message' => '订单生成',
-                    'change_type' => 'create'
+                    'change_type' => $storeOrderStatusRepository::ORDER_STATUS_CREATE,
+                    'uid' => $user->uid,
+                    'nickname' => $user->nickname,
+                    'user_type' => $storeOrderStatusRepository::U_TYPE_USER,
                 ];
 
                 foreach ($cartInfo['list'] as $cart) {
@@ -1266,7 +1273,7 @@ class StoreOrderCreateRepository extends StoreOrderRepository
                                 'final_start_time' => $cart['productPresell']['final_start_time'],
                                 'final_end_time' => $cart['productPresell']['final_end_time'],
                                 'pay_price' => $allFinalPrice,
-                                'presell_order_sn' => $presellOrderRepository->getNewOrderId()
+                                'presell_order_sn' => $this->getNewOrderId(StoreOrderRepository::TYPE_SN_PRESELL)
                             ]);
                         }
                         app()->make(ProductPresellSkuRepository::class)->incCount($cart['source_id'], $cart['productAttr']['unique'], 'one_take');
@@ -1328,7 +1335,7 @@ class StoreOrderCreateRepository extends StoreOrderRepository
             if (count($bills) > 0) {
                 app()->make(UserBillRepository::class)->insertAll($bills);
             }
-            $storeOrderStatusRepository->insertAll($orderStatus);
+            $storeOrderStatusRepository->batchCreateLog($orderStatus);
             $storeOrderProductRepository->insertAll($orderProduct);
             event('order.create', compact('groupOrder'));
             return $groupOrder;

@@ -333,12 +333,18 @@ class StoreCouponRepository extends BaseRepository
             'coupon_id' => $coupon['coupon_id'],
             'mer_id' => $coupon['mer_id']
         ];
-        if ($coupon['coupon_type'] == 1) {
-            $data['start_time'] = $coupon['use_start_time'];
-            $data['end_time'] = $coupon['use_end_time'];
+        if ($coupon['send_type'] == self::GET_COUPON_TYPE_SVIP) {
+            $data['start_time'] = date('Y-m-d 00:00:00',time());
+            $firstday = date('Y-m-01', time());
+            $data['end_time'] = date('Y-m-d 23:59:59', strtotime("$firstday +1 month -1 day"));
         } else {
-            $data['start_time'] = date('Y-m-d H:i:s');
-            $data['end_time'] = date('Y-m-d H:i:s', strtotime("+ {$coupon['coupon_time']}day"));
+            if ($coupon['coupon_type'] == 1) {
+                $data['start_time'] = $coupon['use_start_time'];
+                $data['end_time'] = $coupon['use_end_time'];
+            } else {
+                $data['start_time'] = date('Y-m-d H:i:s');
+                $data['end_time'] = date('Y-m-d H:i:s', strtotime("+ {$coupon['coupon_time']}day"));
+            }
         }
         return $data;
     }

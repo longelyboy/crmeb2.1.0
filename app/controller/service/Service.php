@@ -3,6 +3,7 @@
 namespace app\controller\service;
 
 use app\common\repositories\store\order\StoreOrderRepository;
+use app\common\repositories\store\order\StoreOrderStatusRepository;
 use app\common\repositories\store\order\StoreRefundOrderRepository;
 use app\common\repositories\store\product\ProductRepository;
 use app\common\repositories\store\service\StoreServiceLogRepository;
@@ -70,7 +71,9 @@ class Service extends BaseController
     public function orderStatus($id)
     {
         [$page, $limit] = $this->getPage();
-        return app('json')->success(app()->make(StoreOrderRepository::class)->getOrderStatus($id, $page, $limit));
+        $where = $this->request->params(['date','user_type']);
+        $where['id'] = $id;
+        return app('json')->success(app()->make(StoreOrderRepository::class)->getOrderStatus($where, $page, $limit));
     }
 
     public function getRefundOder($id)

@@ -44,23 +44,24 @@ class ProductCopyRepository extends BaseRepository
     public function getProduct($url,$merId)
     {
         $key = $merId.'_url_'.$url;
-
         if ($result= Cache::get($key)) return $result;
-        if (systemConfig('copy_product_status') == 2) {
-            $resultData['data'] = app()->make(CrmebServeServices::class)->copy()->goods($url);
-            $resultData['status'] = 200;
-        } else {
+        if (systemConfig('copy_product_status') == 1) {
             $resultData = $this->useApi($url);
+        } else {
+            $resultData['data'] = app()->make(CrmebServeServices::class)->copy()->goods($url);
+            $resultData['status'] = true;
         }
-        if ($resultData['status']) {
+        if ($resultData['status'] && $resultData['status']) {
             $result = $this->getParamsData($resultData['data']);
-
             Cache::set($key,$result);
-            $this->add(['type'  => 'copy', 'num'   => 1, 'info'   => $url , 'mer_id'=> $merId, 'message' => '采集商品',],$merId);
+            $this->add(['type' => 'copy', 'num' => -1, 'info' => $url , 'mer_id' => $merId, 'message' => '采集商品',],$merId);
             return $result;
         } else {
+            if (isset($resultData['msg']))
+                throw  new ValidateException('接口错误信息:'.$resultData['msg']);
             throw  new ValidateException('采集失败，请更换链接重试！');
         }
+
     }
 
     /**
@@ -217,7 +218,8 @@ class ProductCopyRepository extends BaseRepository
         ]);
         $make = app()->make(AttachmentRepository::class);
         $serve = app()->make(DownloadImageService::class);
-        $type = systemConfig('upload_type');
+        $type = (int)systemConfig('upload_type') ?: 1;
+
         if (is_array($data)) {
             foreach ($data as $datum) {
                 $arcurl =  is_int(strpos($datum, 'http')) ? $datum : 'http://' . ltrim( $datum, '\//');
@@ -310,7 +312,7 @@ class ProductCopyRepository extends BaseRepository
         if(systemConfig('copy_product_status')){
             $data = [
                 'type' => 'sys',
-                'num' => systemConfig('copy_product_defaul'),
+                'num' => systemConfig('copy_product_defaul') ?? 0,
                 'message' => '赠送次数',
             ];
             $this->add($data,$merId);

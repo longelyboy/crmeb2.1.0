@@ -243,84 +243,6 @@ class Product extends BaseModel
         return $value ? explode(',',$value) : $value;
     }
 
-    /*
-     * -----------------------------------------------------------------------------------------------------------------
-     *  关联模型
-     * -----------------------------------------------------------------------------------------------------------------
-    */
-    public function merCateId()
-    {
-        return $this->hasMany(ProductCate::class,'product_id','product_id')->field('product_id,mer_cate_id');
-    }
-    public function attr()
-    {
-        return $this->hasMany(ProductAttr::class,'product_id','product_id');
-    }
-    public function attrValue()
-    {
-        return $this->hasMany(ProductAttrValue::class,'product_id','product_id');
-    }
-    public function oldAttrValue()
-    {
-        return $this->hasMany(ProductAttrValue::class,'product_id','old_product_id');
-    }
-    public function content()
-    {
-        return $this->hasOne(ProductContent::class,'product_id','product_id');
-    }
-    protected function temp()
-    {
-        return $this->hasOne(ShippingTemplate::class,'shipping_template_id','temp_id');
-    }
-    public function storeCategory()
-    {
-        return $this->hasOne(StoreCategory::class,'store_category_id','cate_id')->field('store_category_id,cate_name');
-    }
-    public function merchant()
-    {
-        return $this->hasOne(Merchant::class,'mer_id','mer_id')->field('is_trader,type_id,mer_id,mer_name,mer_avatar,product_score,service_score,postage_score,service_phone,care_count');
-    }
-    public function reply()
-    {
-        return $this->hasMany(ProductReply::class,'product_id','product_id')->order('create_time DESC');
-    }
-    public function brand()
-    {
-        return $this->hasOne(StoreBrand::class,'brand_id','brand_id')->field('brand_id,brand_name');
-    }
-    public function seckillActive()
-    {
-        return $this->hasOne(StoreSeckillActive::class,'product_id','product_id');
-    }
-    public function issetCoupon()
-    {
-        return $this->hasOne(StoreCouponProduct::class, 'product_id', 'product_id')->alias('A')
-            ->rightJoin('StoreCoupon B', 'A.coupon_id = B.coupon_id')->where(function (BaseQuery $query) {
-                $query->where('B.is_limited', 0)->whereOr(function (BaseQuery $query) {
-                    $query->where('B.is_limited', 1)->where('B.remain_count', '>', 0);
-                });
-            })->where(function (BaseQuery $query) {
-                $query->where('B.is_timeout', 0)->whereOr(function (BaseQuery $query) {
-                    $time = date('Y-m-d H:i:s');
-                    $query->where('B.is_timeout', 1)->where('B.start_time', '<', $time)->where('B.end_time', '>', $time);
-                });
-            })->field('A.product_id,B.*')->where('status', 1)->where('type', 1)->where('send_type', 0)->where('is_del', 0)
-            ->order('sort DESC,coupon_id DESC')->hidden(['is_del', 'status']);
-    }
-    public function assist()
-    {
-        return $this->hasOne(ProductAssist::class,'product_id','product_id');
-    }
-    public function productGroup()
-    {
-        return $this->hasOne(ProductGroup::class,'product_id','product_id');
-    }
-    public function guarantee()
-    {
-        return $this->hasOne(GuaranteeTemplate::class,'guarantee_template_id','guarantee_template_id')->where('status',1)->where('is_del',0);
-    }
-
-
     /**
      * TODO 是否是会员
      * @return bool
@@ -406,6 +328,103 @@ class Product extends BaseModel
         return 0;
     }
 
+    public function getIsSvipPriceAttr()
+    {
+        if ($this->product_type == 0 && $this->mer_svip_status != 0) {
+            //默认比例
+            if ($this->svip_price_type == 1) {
+                $rate = merchantConfig($this->mer_id,'svip_store_rate');
+                $svip_store_rate = $rate > 0 ? bcdiv($rate,100,2) : 0;
+                $price = $this->attrValue()->order('price ASC')->value('price');
+                return bcmul($price,$svip_store_rate,2);
+            }
+            //自定义
+            if ($this->svip_price_type == 2) {
+                return $this->getData('svip_price');
+            }
+        }
+        return 0;
+    }
+
+    /*
+     * -----------------------------------------------------------------------------------------------------------------
+     *  关联模型
+     * -----------------------------------------------------------------------------------------------------------------
+    */
+    public function merCateId()
+    {
+        return $this->hasMany(ProductCate::class,'product_id','product_id')->field('product_id,mer_cate_id');
+    }
+    public function attr()
+    {
+        return $this->hasMany(ProductAttr::class,'product_id','product_id');
+    }
+    public function attrValue()
+    {
+        return $this->hasMany(ProductAttrValue::class,'product_id','product_id');
+    }
+    public function oldAttrValue()
+    {
+        return $this->hasMany(ProductAttrValue::class,'product_id','old_product_id');
+    }
+    public function content()
+    {
+        return $this->hasOne(ProductContent::class,'product_id','product_id');
+    }
+    protected function temp()
+    {
+        return $this->hasOne(ShippingTemplate::class,'shipping_template_id','temp_id');
+    }
+    public function storeCategory()
+    {
+        return $this->hasOne(StoreCategory::class,'store_category_id','cate_id')->field('store_category_id,cate_name');
+    }
+    public function merchant()
+    {
+        return $this->hasOne(Merchant::class,'mer_id','mer_id')->field('is_trader,type_id,mer_id,mer_name,mer_avatar,product_score,service_score,postage_score,service_phone,care_count,is_margin');
+    }
+    public function reply()
+    {
+        return $this->hasMany(ProductReply::class,'product_id','product_id')->order('create_time DESC');
+    }
+    public function brand()
+    {
+        return $this->hasOne(StoreBrand::class,'brand_id','brand_id')->field('brand_id,brand_name');
+    }
+    public function seckillActive()
+    {
+        return $this->hasOne(StoreSeckillActive::class,'product_id','product_id');
+    }
+    public function issetCoupon()
+    {
+        return $this->hasOne(StoreCouponProduct::class, 'product_id', 'product_id')->alias('A')
+            ->rightJoin('StoreCoupon B', 'A.coupon_id = B.coupon_id')->where(function (BaseQuery $query) {
+                $query->where('B.is_limited', 0)->whereOr(function (BaseQuery $query) {
+                    $query->where('B.is_limited', 1)->where('B.remain_count', '>', 0);
+                });
+            })->where(function (BaseQuery $query) {
+                $query->where('B.is_timeout', 0)->whereOr(function (BaseQuery $query) {
+                    $time = date('Y-m-d H:i:s');
+                    $query->where('B.is_timeout', 1)->where('B.start_time', '<', $time)->where('B.end_time', '>', $time);
+                });
+            })->field('A.product_id,B.*')->where('status', 1)->where('type', 1)->where('send_type', 0)->where('is_del', 0)
+            ->order('sort DESC,coupon_id DESC')->hidden(['is_del', 'status']);
+    }
+    public function assist()
+    {
+        return $this->hasOne(ProductAssist::class,'product_id','product_id');
+    }
+    public function productGroup()
+    {
+        return $this->hasOne(ProductGroup::class,'product_id','product_id');
+    }
+    public function guarantee()
+    {
+        return $this->hasOne(GuaranteeTemplate::class,'guarantee_template_id','guarantee_template_id')->where('status',1)->where('is_del',0);
+    }
+
+
+
 
     /*
      * -----------------------------------------------------------------------------------------------------------------
@@ -456,8 +475,9 @@ class Product extends BaseModel
     }
     public function searchPidAttr($query, $value)
     {
-        $cateId = app()->make(StoreCategoryRepository::class)->allChildren(intval($value));
-        $query->whereIn('cate_id', $cateId);
+        $childrenId = app()->make(StoreCategoryRepository::class)->findChildrenId((int)$value);
+        $ids = array_merge($childrenId, [(int)$value]);
+        $query->whereIn('cate_id', $ids);
     }
     public function searchStockAttr($query, $value)
     {

@@ -13,9 +13,10 @@
 
 namespace app\common\repositories\store\order;
 
-
 use app\common\dao\store\order\StoreOrderStatusDao;
 use app\common\repositories\BaseRepository;
+use app\common\repositories\store\service\StoreServiceRepository;
+use app\common\repositories\store\service\StoreServiceUserRepository;
 
 /**
  * Class StoreOrderStatusRepository
@@ -26,21 +27,57 @@ use app\common\repositories\BaseRepository;
  */
 class StoreOrderStatusRepository extends BaseRepository
 {
+    //订单日志
+    public const TYPE_ORDER  = 'order';
+    //退款单日志
+    public const TYPE_REFUND = 'refund';
+    //商品日志
+//    public const TYPE_PRODUCT = 'product';
 
+    //操作者类型
+    public const U_TYPE_SYSTEM = 0;
+    public const U_TYPE_USER = 1;
+    public const U_TYPE_ADMIN = 2;
+    public const U_TYPE_MERCHANT = 3;
+    public const U_TYPE_SERVICE = 4;
 
-
+    //订单变动类型
+    //取消
     const ORDER_STATUS_CANCEL = 'cancel';
+    //改价
     const ORDER_STATUS_CHANGE = 'change';
+    //创建
     const ORDER_STATUS_CREATE = 'create';
+    //删除
     const ORDER_STATUS_DELETE = 'delete';
+    //收货
     const ORDER_STATUS_TAKE   = 'take';
+    //拆单
+    const ORDER_STATUS_SPLIT   = 'split';
+    //完成
     const ORDER_STATUS_OVER   = 'over';
-    const ORDER_STATUS_PRESELL= 'presell';
-    const ORDER_STATUS_REFUND_ALL   = 'refund_all';
     const ORDER_STATUS_AUTO_OVER    = 'auto_over';
+    //预售订单
+    const ORDER_STATUS_PRESELL= 'presell';
     const ORDER_STATUS_PRESELL_CLOSE = 'presell_close';
-    const ORDER_STATUS_PAY_SUCCCESS = 'pay_success';
+    //全部退款
+    const ORDER_STATUS_REFUND_ALL   = 'refund_all';
+    //支付成功
+    const ORDER_STATUS_PAY_SUCCCESS  = 'pay_success';
+    //拼图成功
     const ORDER_STATUS_GROUP_SUCCESS = 'group_success';
+    //申请退款
+    const CHANGE_REFUND_CREATGE = 'refund_create';
+    //已发货
+    const CHANGE_BACK_GOODS = 'back_goods';
+    //退款申请已通过
+    const CHANGE_REFUND_AGREE = 'refund_agree';
+    //退款成功
+    const CHANGE_REFUND_PRICE = 'refund_price';
+    //订单退款已拒绝
+    const CHANGE_REFUND_REFUSE = 'refund_refuse';
+    //用户取消退款
+    const CHANGE_REFUND_CANCEL = 'refund_cancel';
 
     /*
       2   => '待取货',
@@ -62,7 +99,6 @@ class StoreOrderStatusRepository extends BaseRepository
     const ORDER_DELIVERY_CITY_OVER   = 'delivery_5_4';
     const ORDER_DELIVERY_CITY_REFUND = 'delivery_5_10';
     const ORDER_DELIVERY_CITY_REFUNDING = 'delivery_5_9';
-
 
 
     /**
@@ -87,11 +123,52 @@ class StoreOrderStatusRepository extends BaseRepository
         return $this->dao->create(compact('order_id', 'change_message', 'change_type'));
     }
 
-    public function search($id,$page, $limit)
+    public function search($where,$page, $limit)
     {
-        $query = $this->dao->search($id);
+        $query = $this->dao->search($where)->order('change_time DESC');
         $count = $query->count();
         $list = $query->page($page, $limit)->select();
         return compact('count','list');
+    }
+
+    public function createAdminLog(array $data)
+    {
+        $request = request();
+        $data['user_type'] = $request->userType();
+        $data['uid'] = $request->adminId();
+        $data['nickname'] = $request->adminInfo()->real_name;
+        return $this->dao->create($data);
+    }
+
+    public function createServiceLog($service_id, array $data)
+    {
+        $service = app()->make(StoreServiceRepository::class)->getWhere(['service_id' => $service_id]);
+        $data['user_type'] = self::U_TYPE_SERVICE;
+        $data['uid'] = $service_id;
+        $data['nickname'] = $service->nickname;
+        return $this->dao->create($data);
+    }
+
+    public function createUserLog(array $data)
+    {
+        $data['user_type'] = self::U_TYPE_USER;
+        $data['uid'] = request()->uid();
+        $data['nickname'] = request()->userInfo()->nickname;
+        return $this->dao->create($data);
+    }
+
+    public function createSysLog(array $data)
+    {
+        $data['user_type'] = self::U_TYPE_SYSTEM;
+        $data['uid'] = 0;
+        $data['nickname'] = '系统';
+        return $this->dao->create($data);
+    }
+
+    public function batchCreateLog($data)
+    {
+        if(!empty($data)) {
+            return $this->dao->insertAll($data);
+        }
     }
 }

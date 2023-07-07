@@ -145,8 +145,16 @@ class DeliveryOrderRepository extends BaseRepository
             $res = DeliverySevices::create($order['station_type'])->cancelOrder($data);
             $deduct_fee = $res['deduct_fee'] ?? 0;
             $this->cancelAfter($order, $deduct_fee, $mark);
+            //订单记录
             $statusRepository = app()->make(StoreOrderStatusRepository::class);
-            $statusRepository->status($order['order_id'], $statusRepository::ORDER_DELIVERY_CITY_CANCEL, '已取消');
+            $orderStatus = [
+                'order_id' => $order->order_id,
+                'order_sn' => $order->order_sn,
+                'type' => $statusRepository::TYPE_ORDER,
+                'change_message' => '同城配送订单已取消',
+                'change_type' => $statusRepository::ORDER_DELIVERY_CITY_CANCEL,
+            ];
+            $statusRepository->createAdminLog($orderStatus);
         });
     }
 
@@ -283,20 +291,27 @@ class DeliveryOrderRepository extends BaseRepository
             $res->status = $status;
             $res->reason = $reason;
             $res->save();
-
-            $message = '订单已配送【'. $this->statusData[$status].'】';
-            app()->make(StoreOrderStatusRepository::class)->status($res['order_id'], $this->message[$status], $message);
-
-            if ($status == 2 && !empty($data)) $make->update($res['order_id'],$data);
-
-
+            //订单记录
+            $statusRepository = app()->make(StoreOrderStatusRepository::class);
+            $message = '订单同城配送【'. $this->statusData[$status].'】';
+            $orderStatus = [
+                'order_id' => $orderData['order_id'],
+                'order_sn' => $orderData['order_sn'],
+                'type' => $statusRepository::TYPE_ORDER,
+                'change_message' => $message,
+                'change_type' => $this->message[$status],
+            ];
+            $statusRepository->createSysLog($orderStatus);
+            if ($status == 2 && !empty($data))
+                $make->update($res['order_id'],$data);
             if ($status == 4){
                 $order = $make->get($res['order_id']);
                 $user = app()->make(UserRepository::class)->get($order['uid']);
                 $make->update($res['order_id'],['status' => 2]);
                 $make->takeAfter($order, $user);
             }
-            if ($status == -1) $this->cancelAfter($res, $deductFee , $reason);
+            if ($status == -1)
+                $this->cancelAfter($res, $deductFee , $reason);
         }
     }
 
@@ -314,11 +329,16 @@ class DeliveryOrderRepository extends BaseRepository
         //地址转经纬度
         try{
             $addres = lbs_address($station['city_name'], $order['user_address']);
+            if($type == DeliverySevices::DELIVERY_TYPE_UU) {
+                [$location['lng'],$location['lat']] = gcj02ToBd09($addres['location']['lng'],$addres['location']['lat']);
+            } else {
+                $location = $addres['location'];
+            }
         }catch (\Exception $e) {
             throw new ValidateException('获取经纬度失败');
         }
 
-        $getPriceParams = $this->getPriceParams($station, $order, $addres['location'],$type);
+        $getPriceParams = $this->getPriceParams($station, $order,$location,$type);
         $orderSn = $this->getOrderSn();
         $getPriceParams['origin_id'] = $orderSn;
         $getPriceParams['callback_url'] = $callback_url;

@@ -131,16 +131,14 @@ class MerchantIntentionRepository extends BaseRepository
                 'is_margin' => $margin['is_margin'] ?? -1,
                 'margin' => $margin['margin'] ?? 0
             ];
-            if ($data['status'] == 1) {
-                $data['fail_msg'] = '';
-                $smsData = [
-                    'date' => date('m月d日', strtotime($intention->create_time)),
-                    'mer' => $intention['mer_name'],
-                    'phone' => $intention['phone'],
-                    'pwd' => $password ?? '',
-                    'site_name' => systemConfig('site_name'),
-                ];
-            }
+            $data['fail_msg'] = '';
+            $smsData = [
+                'date' => date('m月d日', strtotime($intention->create_time)),
+                'mer' => $intention['mer_name'],
+                'phone' => $intention['phone'],
+                'pwd' => $password ?? '',
+                'site_name' => systemConfig('site_name'),
+            ];
         }
         if ($data['status'] == 2) {
             $smsData = [

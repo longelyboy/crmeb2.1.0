@@ -40,7 +40,13 @@ class StorePrinterRepository extends BaseRepository
             Elm::input('printer_appkey','应用ID')->required(),
             Elm::input('printer_appid','用户ID')->required(),
             Elm::input('printer_secret','应用密匙')->required(),
-            Elm::input('printer_terminal','打印机终端号')->required(),
+            Elm::input('printer_terminal','打印机终端号')->required()->appendRule('suffix', [
+                'type' => 'div',
+                'style' => ['color' => '#999999'],
+                'domProps' => [
+                    'innerHTML' =>'易联云打印机终端号打印机型号: 易联云打印机 K4无线版',
+                ]
+            ]),
             Elm::switches('status', '是否开启', 1)->inactiveValue(0)->activeValue(1)->inactiveText('关')->activeText('开')
         ]);
         return $form->setTitle($id ? '修改打印机' : '添加打印机')->formData($formData);

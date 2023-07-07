@@ -89,8 +89,8 @@ class MerchantHandler
         $admin = $repository->get($payload->jti[0]);
         if (!$admin)
             return app('json')->fail('账号不存在');
-        if (!$admin['status'])
-            return app('json')->fail('账号已被禁用');
+//        if (!$admin['status'])
+//            return app('json')->fail('账号已被禁用');
 
         /**
          * @var MerchantRepository $merchantRepository

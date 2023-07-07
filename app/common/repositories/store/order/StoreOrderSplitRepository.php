@@ -26,22 +26,22 @@ use think\facade\Db;
  */
 class StoreOrderSplitRepository extends StoreOrderRepository
 {
-    public function splitOrder(StoreOrder $order, array $rule)
+    public function splitOrder(StoreOrder $order, array $rule, $service_id = 0, $type = null)
     {
-        return app()->make(LockService::class)->exec('order.split.' . $order->order_id, function () use ($rule, $order) {
-            return $this->execSplitOrder($order, $rule);
+        return app()->make(LockService::class)->exec('order.split.' . $order->order_id, function () use ($rule, $order,$service_id,$type) {
+            return $this->execSplitOrder($order, $rule, $service_id,$type);
         });
     }
 
-    public function execSplitOrder(StoreOrder $order, array $rule)
+    public function execSplitOrder(StoreOrder $order, array $rule, $service_id = 0, $type = null)
     {
         if ($order['status'] != 0) {
             throw new ValidateException('订单已发货');
         }
-        if ($order['activity_type'] == 2) {
+        if ($order['activity_type'] == 2 && !$type) {
             throw new ValidateException('预售订单不能拆单');
         }
-        return Db::transaction(function () use ($order, $rule) {
+        return Db::transaction(function () use ($order, $rule,$service_id) {
             $newOrderId = 0;
             $newOrder = $order->getOrigin();
             $newOrder['total_num'] = 0;
@@ -198,6 +198,29 @@ class StoreOrderSplitRepository extends StoreOrderRepository
             $order->save();
             if ($flag) {
                 $this->orderRefundAllAfter($order);
+            }
+            $statusRepository = app()->make(StoreOrderStatusRepository::class);
+            $orderStatus = [
+                'order_id' => $order->order_id,
+                'order_sn' => $order->order_sn,
+                'type' => $statusRepository::TYPE_ORDER,
+                'change_message' => '生成子订单：'.$newOrder->order_sn,
+                'change_type' => $statusRepository::ORDER_STATUS_SPLIT,
+            ];
+            $newOrderStatus = [
+                'order_id' => $newOrder->order_id,
+                'order_sn' => $newOrder->order_sn,
+                'type' => $statusRepository::TYPE_ORDER,
+                'change_message' => '生成子订单',
+                'change_type' => $statusRepository::ORDER_STATUS_SPLIT,
+            ];
+
+            if ($service_id) {
+                $statusRepository->createServiceLog($service_id,$orderStatus);
+                $statusRepository->createServiceLog($service_id,$newOrderStatus);
+            } else {
+                $statusRepository->createAdminLog($orderStatus);
+                $statusRepository->createAdminLog($newOrderStatus);
             }
             return $newOrder;
         });

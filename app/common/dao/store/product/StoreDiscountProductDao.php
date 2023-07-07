@@ -27,11 +27,7 @@ class StoreDiscountProductDao extends BaseDao
 
     public function clear($id)
     {
-        return Db::transaction(function () use($id){
-            $discount_product_id = $this->getModel()::getDb()->where('discount_id',$id)->column('discount_product_id');
-            $this->getModel()::getDb()->where('discount_id',$id)->delete();
-            app()->make(ProductSkuRepository::class)->clear($discount_product_id, 10);
-        });
+        $this->getModel()::getDb()->where('discount_id',$id)->delete();
     }
 }
 

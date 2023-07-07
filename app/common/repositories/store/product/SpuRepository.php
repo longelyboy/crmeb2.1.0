@@ -149,7 +149,7 @@ class SpuRepository extends BaseRepository
         $count = $query->count();
 
         $list = $query->page($page, $limit)->setOption('field', [])->field($this->productFiled)->select();
-        $append = ['stop_time','show_svip_info','svip_price'];
+        $append = ['stop_time','svip_price','show_svip_info','is_svip_price'];
         if ($productMake->getUserIsPromoter($userInfo))
             $append[] = 'max_extension';
         $list->append($append);
@@ -397,7 +397,7 @@ class SpuRepository extends BaseRepository
                     break;
                 case 4:
                     $_make = app()->make(ProductGroupRepository::class);
-                    $wher[$_make->getPk()] = $id;
+                    $where[$_make->getPk()] = $id;
                     $res = $_make->getWhere([$_make->getPk() => $id]);
                     $where = [
                         'activity_id' => $id,
@@ -406,15 +406,18 @@ class SpuRepository extends BaseRepository
                     ];
                     break;
                 default:
+                    $where = [
+                        'activity_id' => 0,
+                        'product_id' => $id,
+                        'product_type' => 0,
+                    ];
                     break;
             }
         } catch (\Exception $e) {
             throw new ValidateException('数据不存在');
         }
-
         if ($merId) $where['mer_id'] = $merId;
         $result = $this->dao->getSearch($where)->find();
-
         if (!$result) throw new ValidateException('数据不存在');
         return $result;
     }

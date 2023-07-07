@@ -104,7 +104,7 @@ class Admin extends BaseController
             return app('json')->fail('金额不可未负数');
         if (!$repository->merStatusExists((int)$id, $merId))
             return app('json')->fail('订单信息或状态错误');
-        $repository->eidt($id, $data);
+        $repository->eidt($id, $data, $this->request->serviceInfo()->service_id);
         return app('json')->success('修改成功');
     }
 

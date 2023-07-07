@@ -16,6 +16,7 @@ namespace app\common\dao\user;
 
 use app\common\dao\BaseDao;
 use app\common\model\user\UserRecharge;
+use app\common\repositories\store\order\StoreOrderRepository;
 use think\db\BaseQuery;
 
 /**
@@ -40,7 +41,7 @@ class UserRechargeDao extends BaseDao
     public function createOrderId($uid)
     {
         $count = (int)UserRecharge::getDB()->where('uid', $uid)->where('create_time', '>=', date("Y-m-d"))->where('create_time', '<', date("Y-m-d", strtotime('+1 day')))->count();
-        return 'wx' . date('YmdHis', time()) . ($uid . $count);
+        return StoreOrderRepository::TYPE_SN_USER_RECHARGE . date('YmdHis', time()) . ($uid . $count);
     }
 
     public function userRechargePrice($uid)

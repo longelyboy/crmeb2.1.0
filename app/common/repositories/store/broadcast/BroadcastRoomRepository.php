@@ -201,7 +201,7 @@ class BroadcastRoomRepository extends BaseRepository
     {
         return Elm::createForm(Route::buildUrl('systemBroadcastRoomApply', compact('id'))->build(), [
             Elm::radio('status', '审核状态', '1')->options([['value' => '-1', 'label' => '未通过'], ['value' => '1', 'label' => '通过']])->control([
-                ['value' => -1, 'rule' => [
+                ['value' => '-1', 'rule' => [
                     Elm::textarea('msg', '未通过原因', '信息有误,请完善')->required()
                 ]]
             ]),
@@ -251,9 +251,10 @@ class BroadcastRoomRepository extends BaseRepository
 
         $room = $room->toArray();
         $miniProgramService = MiniProgramService::create();
-        $coverImg = './public' . app()->make(DownloadImageService::class)->downloadImage($room['cover_img'])['path'];
-        $shareImg = './public' . app()->make(DownloadImageService::class)->downloadImage($room['share_img'])['path'];
-        $feedsImg = './public' . app()->make(DownloadImageService::class)->downloadImage($room['feeds_img'])['path'];
+        $DownloadImageService = app()->make(DownloadImageService::class);
+        $coverImg = './public' . $DownloadImageService->downloadImage($room['cover_img'],'def','',1)['path'];
+        $shareImg = './public' . $DownloadImageService->downloadImage($room['share_img'],'def','',1)['path'];
+        $feedsImg = './public' . $DownloadImageService->downloadImage($room['feeds_img'],'def','',1)['path'];
         $data = [
             'startTime' => strtotime($room['start_time']),
             'endTime' => strtotime($room['end_time']),

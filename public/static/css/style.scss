@@ -8,7 +8,6 @@
 	border-radius: 5rpx;
 	padding: 0 4rpx;
 	line-height: 28rpx;
-	// height: 30rpx;
 	margin-right: 8rpx;
 	border: 1px solid #E93424!important;
 }
@@ -70,7 +69,6 @@
 	position: relative;
 	top: 5rpx;
 }
-
 .product-con .wrapper .share .money .vip-money{
 	color: #282828;
 	margin-left: 13rpx
@@ -105,7 +103,6 @@
 	position: relative;
 	padding-right: 50rpx;
 	margin-bottom: 30rpx;
-	
 }
 .product-con .wrapper .introduce .fenxiang_btn {
 	text-align: center;
@@ -119,7 +116,6 @@
 .product-con .wrapper .introduce .infor {
 	width: 570rpx;
 }
-
 .product-con .wrapper .introduce .iconfont {
 	font-size: 37rpx;
 	color: #515151;
@@ -169,13 +165,11 @@
 	font-size: 26rpx;
 	color: #82848f
 }
-
 .product-con .wrapper .coupon .hide {
 	width: 650rpx;
 	height: 80rpx;
 	line-height: 80rpx
 }
-
 .product-con .wrapper .coupon .activity {
 	height: 40rpx;
 	padding: 0 20rpx;
@@ -186,40 +180,34 @@
 	position: relative;
 	margin: 19rpx 0 19rpx 15rpx
 }
-
 .product-con .wrapper .coupon .activity:before {
 	content: ' ';
 	position: absolute;
 	width: 7rpx;
 	height: 10rpx;
 	border-radius: 0 7rpx 7rpx 0;
-	// border: 1rpx solid #f2857b;
 	background-color: #fff;
 	bottom: 50%;
 	left: -3rpx;
 	margin-bottom: -6rpx;
 	border-left-color: #fff
 }
-
 .product-con .wrapper .coupon .activity:after {
 	content: ' ';
 	position: absolute;
 	width: 7rpx;
 	height: 10rpx;
 	border-radius: 7rpx 0 0 7rpx;
-	// border: 1rpx solid #f2857b;
 	background-color: #fff;
 	right: -3rpx;
 	bottom: 50%;
 	margin-bottom: -6rpx;
 	border-right-color: #fff
 }
-
 .product-con .wrapper .coupon .iconfont {
 	color: #7a7a7a;
 	font-size: 28rpx
 }
-
 .product-con .attribute {
 	background-color: #fff;
 	padding: 0 30rpx;
@@ -228,7 +216,6 @@
 	height: 80rpx;
 	position: relative;
 	border-bottom: 2rpx solid #f5f5f5;
-
 }
 .product-con .attribute:last-child{
 	border-bottom: none;
@@ -267,7 +254,6 @@
 	margin-left: 30rpx;
 	padding-right: 30rpx;
 }
-
 .product-con .userEvaluation .title .praise,
 .product-con .userPlant .title .praise,
 .product-con .combo .title .praise{
@@ -293,6 +279,7 @@
 .product-con .userPlant .imgList {
 	padding: 0 30rpx;
 }
+
 .product-con .combo .img-box {
 	margin: 30rpx 0 30rpx 0;
 	display: flex;
@@ -300,7 +287,6 @@
 .product-con .combo .img-box .img-item,.product-con .combo .combo_item{
 	display: flex;
 	align-items: center;
-	
 }
 .product-con .combo .combo_item{
 	padding-left: 30rpx;
@@ -347,14 +333,24 @@
 	margin: 0 15rpx 15rpx 0;
 	position: relative;
 	border-radius: 16rpx;
+	position: relative;
 }
+
 .product-con .userPlant .imgList .pictrue:last-child {
 	margin-right: 0;
 }
-.product-con .userPlant .imgList .pictrue image {
+.product-con .userPlant .imgList .pictrue .image {
 	width: 100%;
 	height: 100%;
 	border-radius: 16rpx;
+}
+.product-con .userPlant .imgList .video_img{
+	width: 40rpx;
+	height: 40rpx;
+	position: absolute;
+	top: 10rpx;
+	right: 10rpx;
+	z-index: 10;
 }
 .product-con .product-intro {
 	position: relative;
@@ -401,7 +397,6 @@
 	height: 100%;
 	border-radius: 6rpx
 }
-
 .goodsStyle .text {
 	width: 545rpx;
 	font-size: 28rpx;
@@ -414,7 +409,6 @@
 .goodsStyle .text .money {
 	text-align: right
 }
-
 .goodsStyle .text .money .num {
 	margin-top: 7rpx
 }
@@ -506,7 +500,6 @@
 	padding-bottom: 50rpx;
 	margin: 0 auto;
 }
-
 .noCommodity .pictrue image {
 	width: 414rpx;
 	height: 305rpx;
@@ -521,7 +514,6 @@
 	width: 100%;
 	height: 100vh
 }
-
 .register .shading .pictrue {
 	width: 172rpx;
 	height: 172rpx;
@@ -529,14 +521,12 @@
 	background-color: rgba(255,255,255,.8);
 	margin: 0 auto
 }
-
 .register .shading .pictrue image {
 	width: 164rpx;
 	height: 164rpx;
 	border-radius: 50%;
 	display: block
 }
-
 .register .whiteBg {
 	width: 620rpx;
 	border-radius: 16rpx;
@@ -544,29 +534,24 @@
 	margin: 30rpx auto 0 auto;
 	padding: 45rpx 30rpx
 }
-
 .register .whiteBg .title {
 	font-size: 36rpx;
 	color: #282828;
 	text-align: center;
 	font-weight: 700
 }
-
 .register .whiteBg .title .item~.item {
 	margin-left: 85rpx
 }
-
 .register .whiteBg .title .item {
 	color: #999;
 	border-bottom: 5rpx solid #fff;
 	padding-bottom: 10rpx
 }
-
 .register .whiteBg .title .item.on {
 	color: #282828;
 	border-bottom-color: #f35749
 }
-
 .register .whiteBg .list .item {
 	border-bottom: 1rpx solid #ededed;
 	padding: 47rpx 0 13rpx 0;
@@ -574,14 +559,12 @@
 	width:100%;
 	box-sizing: border-box;
 }
-
 .register .whiteBg .list .item .name {
 	font-size: 26rpx;
 	color: #2d3342;
 	margin-bottom: 27rpx;
 	text-align: left;
 }
-
 .register .whiteBg .list .item image {
 	width: 40rpx;
 	height: 40rpx;
@@ -599,16 +582,13 @@
 .register .whiteBg .list .item input::-webkit-input-placeholder {
 	color: #ccc;
 }
-
 .register .whiteBg .list .item .placeholder {
 	color: #ccc
 }
-
 .register .whiteBg .list .item .codeIput {
 	width: 240rpx;
 	margin-left: 20rpx
 }
-
 .register .whiteBg .list .item .code {
 	width: 150rpx;
 	height: 50rpx;
@@ -619,24 +599,20 @@
 	text-align: center;
 	font-size: 26rpx
 }
-
 .register .whiteBg .list .item .code.on {
 	background-color: #bbb
 }
-
 .register .whiteBg .list .forgetPwd {
 	text-align: right;
 	font-size: 28rpx;
 	color: #666;
 	margin-top: 20rpx
 }
-
 .register .whiteBg .list .forgetPwd .iconfont {
 	font-size: 30rpx;
 	margin-right: 10rpx;
 	vertical-align: middle
 }
-
 .register .whiteBg .logon {
 	font-size: 34rpx;
 	color: #fff;
@@ -648,7 +624,6 @@
 	line-height: 86rpx;
 	margin-top: 47rpx
 }
-
 .register .whiteBg .tip {
 	height: 110rpx;
 	text-align: center;
@@ -656,25 +631,21 @@
 	font-size: 24rpx;
 	color: #ccc
 }
-
 // 首页修改轮播内部样式；
 .index-bg .uni-swiper-dot {
 	width: 20rpx!important;
 	height: 5rpx!important;
 	border-radius: 3rpx
 }
-
 .boutique .uni-swiper-dot {
 	width: 7rpx!important;
 	height: 7rpx!important;
 	border-radius: 50%
 }
-
 .boutique .uni-swiper-dot-active {
 	width: 20rpx!important;
 	border-radius: 5rpx!important
 }
-
 .sign-record .list .item .data {
 	height: 80rpx;
 	line-height: 80rpx;
@@ -682,111 +653,88 @@
 	font-size: 24rpx;
 	color: #666
 }
-
 .sign-record .list .item .listn {
 	background-color: #fff;
 	font-size: 24rpx;
 	color: #999
 }
-
 .sign-record .list .item .listn .itemn {
 	height: 120rpx;
 	border-bottom: 1rpx solid #eee;
 	padding-right: 30rpx;
 	margin-left: 30rpx
 }
-
 .sign-record .list .item .listn .itemn .name {
 	width: 390rpx;
 	font-size: 28rpx;
 	color: #282828;
 	margin-bottom: 10rpx
 }
-
 .sign-record .list .item .listn .itemn .num {
 	font-size: 36rpx;
-	// font-family: 'Guildford Pro';
 	color: #16ac57
 }
-
-.statistical-page .mc-
-{
+.statistical-page .mc-{
 	padding-bottom: 0
 }
-
 .statistical-page .mpvue-calendar {
 	min-width: 100%
 }
-
 .statistical-page .mpvue-calendar table {
 	margin: 0
 }
-
 .statistical-page .mpvue-calendar td {
 	border-right: 1px solid #fff;
 	padding: 0;
 	width: 14%!important
 }
-
 .statistical-page .calendar-tools {
 	box-shadow: unset;
 	-webkit-box-shadow: unset;
 	-o-box-shadow: unset;
 	-moz-box-shadow: unset
 }
-
 .statistical-page .mc-head-box div {
 	font-size: 14px
 }
-
 .statistical-page .mpvue-calendar td:not(.disabled) span.mc-date-red {
 	color: unset
 }
-
 .statistical-page .mpvue-calendar .mc-range-mode .mc-range-begin span.calendar-date,.statistical-page .mpvue-calendar .mc-range-mode .mc-range-end span.calendar-date {
 	border-radius: 0;
 	background-color: #2291f8!important
 }
-
 .statistical-page .mpvue-calendar td.selected span.mc-date-red {
 	color: #fff
 }
-
 .statistical-page .mc-range-mode .selected .mc-range-bg {
 	background-color: #a0dcf9
 }
-
 .statistical-page .mpvue-calendar .mc-range-mode .mc-range-row-first .calendar-date,.statistical-page .mpvue-calendar .mc-range-mode .mc-range-row-last .calendar-date {
 	background-color: #a0dcf9
 }
-
 .statistical-page .mpvue-calendar .mc-range-mode .selected.mc-range-second-to-last span {
 	background-color: #a0dcf9
 }
-
 .statistical-page .mpvue-calendar .mc-range-mode .mc-range-month-first.selected .calendar-date,.statistical-page .mpvue-calendar .mc-range-mode .mc-range-month-last.selected .calendar-date {
 	background-color: #a0dcf9
 }
-
 .statistical-page .mc-today-element .calendar-date {
 	border-radius: 0;
 	background-color: unset
 }
-
 .new-users .uni-swiper-dot {
 	width: 8px;
 	height: 4px;
 	background: rgba(0,0,0,.15);
 	border-radius: 2px
 }
-
 .new-users .uni-swiper-dot-active {
 	width: 16px;
 	height: 4px;
 	background: rgba(233,51,35,1)!important;
 	border-radius: 2px
 }
-
 .pictrue_log {
 	width: 80rpx;
 	height: 40rpx;
@@ -794,7 +742,6 @@
 	line-height: 40rpx;
 	font-size: 24rpx
 }
-
 .pictrue_log_class {
 	background: -webkit-gradient(linear,left top,right top,from(rgba(246,122,56,1)),to(rgba(241,27,9,1)));
 	background: linear-gradient(90deg,rgba(246,122,56,1) 0,rgba(241,27,9,1) 100%);
@@ -806,7 +753,6 @@
 	text-align: center;
 	z-index: 3
 }
-
 .pictrue_log_medium {
 	width: 80rpx;
 	height: 44rpx;
@@ -815,7 +761,6 @@
 	text-align: center;
 	font-size: 26rpx
 }
-
 .pictrue_log_big {
 	width: 100rpx;
 	height: 46rpx;
@@ -823,29 +768,23 @@
 	border-radius: 20rpx 0 20rpx 0;
 	font-size: 28rpx
 }
-
 .product-con .nav .time .styleAll {
 	padding: 0 6rpx;
 	font-size: 22rpx;
-	// color: #ff3d3d;
-	background-color: #fff;
+	// background-color: #fff;
 	border-radius: 2rpx
 }
-
 .spike-box .styleAll {
 	background-color: #ffdfdd;
 	color: #e93323;
 	padding: 0 5rpx
 }
-
 .product-con .nav .time .timeTxt {
 	color: #fff
 }
-
 .bg-color-hui {
 	background: #bbb!important
 }
-
 .page_content .uni-swiper-wrapper{
 	overflow: initial;
 }
@@ -859,23 +798,18 @@
 	background: #E5E5E5;
 	margin: 0 7rpx;
 }
-
 .page_content .swiper .uni-swiper-dot-active {
 	background: #E93323;
 }
-
 .pictrue_log_xl {
 	background: linear-gradient(90deg,rgba(246,122,56,1) 0,rgba(241,27,9,1) 100%)
 }
-
 .pictrue_log_xl_gray {
 	background: linear-gradient(90deg,rgba(102,102,102,1) 0,rgba(153,153,153,1) 100%)
 }
-
 .pictrue_log_xl_blue {
 	background: linear-gradient(90deg,rgba(26,163,246,1) 0,rgba(24,192,244,1) 100%)
 }
-
 .flex-aj-center {
 	display: flex;
 	align-items: center;
@@ -884,7 +818,6 @@
 .page-index.bgf .noCommodity{
 	border-top: 0;
 }
-
 .product-con .red{
 	color: #82848f;
 }

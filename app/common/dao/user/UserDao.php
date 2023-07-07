@@ -350,7 +350,7 @@ class UserDao extends BaseDao
 
     public function decSpreadCount($uid)
     {
-        User::getDB()->where('uid', $uid)->update([
+        User::getDB()->where('uid', $uid)->where('spread_count','>',0)->update([
             'spread_count' => Db::raw('spread_count - 1')
         ]);
     }

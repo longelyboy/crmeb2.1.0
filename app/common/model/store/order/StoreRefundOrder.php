@@ -79,7 +79,10 @@ class StoreRefundOrder extends BaseModel
             'order_sn' => $this->order->order_sn,
             'refund_order_sn' => $this->refund_order_sn,
             'refund_price' => $this->refund_price,
-            'pay_price' => $this->order->pay_price
+            'pay_price' => $this->order->pay_price,
+            'refund_message' => $this->refund_message,
+            'open_id' => $this->user->wechat->routine_openid ?? null,
+            'transaction_id' => $this->order->transaction_id,
         ];
     }
 }

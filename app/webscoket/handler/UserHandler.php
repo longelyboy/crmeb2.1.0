@@ -99,7 +99,7 @@ class UserHandler
         if (!$user)
             return app('json')->message('err_tip', '账号不存在');
         if (!$user['status'])
-            return app('json')->message('err_tip', '账号已被禁用');
+            return app('json')->message('err_tip', '账号状态已关闭');
 
         return app('json')->success(['uid' => $user->uid, 'data' => $user->toArray()]);
     }

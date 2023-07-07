@@ -172,6 +172,18 @@ class Service extends BaseController
         return app('json')->success($data);
     }
 
+    public function hasService($id){
+        $uid = 0;
+        if ($this->request->isLogin()) {
+            $uid = $this->request->uid();
+        }
+        $data = $this->repository->getChatService($id, $uid);
+        if (!$data) {
+            return app('json')->fail('暂无可用客服');
+        }
+        return app('json')->success(200);
+    }
+
     public function scanLogin($key)
     {
         $serviceId = (int)$this->request->param('service_id');

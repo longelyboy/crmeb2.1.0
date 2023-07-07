@@ -11,6 +11,7 @@
 namespace app\common\model\store\product;
 
 use app\common\model\BaseModel;
+use app\common\repositories\store\product\ProductSkuRepository;
 
 class StoreDiscountProduct extends BaseModel
 {
@@ -32,7 +33,7 @@ class StoreDiscountProduct extends BaseModel
 
     public function productSku()
     {
-        return $this->hasMany(ProductSku::class,'active_product_id', 'discount_product_id');
+        return $this->hasMany(ProductSku::class,'active_product_id', 'discount_product_id')->where('active_type',ProductSkuRepository::ACTIVE_TYPE_DISCOUNTS);
     }
 
     public function searchProductIdAttr($query, $value)

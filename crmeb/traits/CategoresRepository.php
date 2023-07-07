@@ -73,8 +73,7 @@ trait CategoresRepository
     {
 
         $check = $this->getLevelById($id);
-        if($level)
-            $check = $level;
+        if($level) $check = $level;
         return ($check < $this->dao->getMaxLevel()) ? true : false;
     }
 
@@ -138,8 +137,9 @@ trait CategoresRepository
      */
     public function checkChildLevel(int $id,int $pid)
     {
+        //计算子集最大的数组等级
+
         $childLevel = max($this->dao->getChildLevelById($id)); //1
-        if(!$childLevel) $childLevel = $this->dao->getLevelById($id);
         $changLevel = $childLevel + ($this->changeLevel($id,$pid)); //2
         return $this->checkLevel($id, $changLevel);
     }

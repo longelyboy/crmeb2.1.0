@@ -597,7 +597,7 @@ class ExcelService
         $header = ['商户名称','申请时间','转账金额','到账状态','审核状态','拒绝理由','商户余额','转账信息'];
         $filename = '转账记录_'.time();
         $export = [];
-        $query = app()->make(FinancialRepository::class)->search($where)->with('merchant')->order('create_time DESC');
+        $query = app()->make(FinancialRepository::class)->search($where)->with('merchant');
         $count = $query->count();
         $list = $query->page($page, $limit)->select();
         foreach ($list as $item) {

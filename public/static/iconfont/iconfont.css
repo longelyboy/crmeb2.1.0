@@ -1,8 +1,8 @@
 @font-face {
   font-family: "iconfont"; /* Project id 993865 */
-  src: url('https://at.alicdn.com/t/c/font_993865_2jnkun96cgi.woff2?t=1672385479083') format('woff2'),
-       url('https://at.alicdn.com/t/c/font_993865_2jnkun96cgi.woff?t=1672385479083') format('woff'),
-       url('https://at.alicdn.com/t/c/font_993865_2jnkun96cgi.ttf?t=1672385479083') format('truetype');
+  src: url('https://at.alicdn.com/t/c/font_993865_st57f1kxbxn.woff2?t=1676510581100') format('woff2'),
+       url('https://at.alicdn.com/t/c/font_993865_st57f1kxbxn.woff?t=1676510581100') format('woff'),
+       url('https://at.alicdn.com/t/c/font_993865_st57f1kxbxn.ttf?t=1676510581100') format('truetype');
 }
 
 .iconfont {
@@ -11,6 +11,38 @@
   font-style: normal;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+.icon-daifukuan1:before {
+  content: "\e836";
+}
+
+.icon-daifahuo1:before {
+  content: "\e837";
+}
+
+.icon-daipingjia1:before {
+  content: "\e839";
+}
+
+.icon-daishouhuo1:before {
+  content: "\e83a";
+}
+
+.icon-a-shouhoutuikuan1:before {
+  content: "\e83b";
+}
+
+.icon-baozhengjin:before {
+  content: "\e834";
+}
+
+.icon-tonglianzhifu1:before {
+  content: "\e835";
+}
+
+.icon-dianpu1:before {
+  content: "\e833";
 }
 
 .icon-paizhao:before {

@@ -43,7 +43,7 @@ class MerchantCheckBaseInfoMiddleware extends BaseMiddleware
         if ($cache->has($key)) return;
 
 
-        if (!$merchant->mer_avatar || !$merchant->mer_banner || !$merchant->mer_info || !$merchant->service_phone || !$merchant->mer_address) {
+        if (!$merchant->mer_avatar || !$merchant->mer_banner || !$merchant->mer_info ||  !$merchant->mer_address) {
             throw new ValidateException('您好，请前往左侧菜单【设置】-【商户基本信息】完善商户基本信息。');
         }
         Cache::store('file')->set('mer_valid_' . $merchant->mer_id, 1, 3600 * 8);

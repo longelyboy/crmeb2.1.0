@@ -164,7 +164,7 @@ class ProductSeckill extends BaseController
         $status = $this->request->param('status', 0) == 1 ? 1 : 0;
         if(!$this->repository->merExists($this->request->merId(),$id))
             return app('json')->fail('数据不存在');
-        $this->repository->switchShow([$id],  $status,'is_show',$this->request->merId());
+        $this->repository->switchShow($id,  $status,'is_show',$this->request->merId());
         return app('json')->success('修改成功');
     }
 

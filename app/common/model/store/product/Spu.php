@@ -150,6 +150,11 @@ class Spu extends BaseModel
         return $this->product->svip_price;
     }
 
+    public function getIsSvipPriceAttr()
+    {
+        return $this->product->is_svip_price;
+    }
+
     /*
      * -----------------------------------------------------------------------------------------------------------------
      * 关联表

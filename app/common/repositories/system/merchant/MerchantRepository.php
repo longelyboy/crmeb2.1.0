@@ -315,7 +315,7 @@ class MerchantRepository extends BaseRepository
     {
         $merchant = $this->dao->apiGetOne($id)->hidden([
             "real_name", "mer_phone", "reg_admin_id", "sort", "is_del", "is_audit", "is_best", "mer_state", "bank", "bank_number", "bank_name", 'update_time',
-            'financial_alipay', 'financial_bank', 'financial_wechat', 'financial_type'
+            'financial_alipay', 'financial_bank', 'financial_wechat', 'financial_type','mer_take_phone'
         ]);
         $merchant->append(['type_name', 'isset_certificate', 'services_type']);
         $merchant['care'] = false;

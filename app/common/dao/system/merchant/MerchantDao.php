@@ -162,9 +162,9 @@ class MerchantDao extends BaseDao
      * @param int $merId
      * @author Qinii
      */
-    public function decCareCount(int $merId)
+    public function decCareCount(array $merId)
     {
-        ($this->getModel()::getDB())->where($this->getPk(), $merId)->where('care_count', '>', 0)->dec('care_count', 1)->update();
+        ($this->getModel()::getDB())->whereIn($this->getPk(), $merId)->where('care_count', '>', 0)->dec('care_count', 1)->update();
     }
 
     public function dateMerchantNum($date)

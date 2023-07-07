@@ -203,15 +203,6 @@ class StoreOrderDao extends BaseDao
         return $query;
     }
 
-    public function groupBuyingStatus(array $orderIds, $status)
-    {
-        if (!count($orderIds)) return 0;
-        $make = app()->make(StoreOrderStatusRepository::class);
-        foreach ($orderIds as $id){
-            $make->status($id,$make::ORDER_STATUS_GROUP_SUCCESS,'拼团成功');
-        }
-        return StoreOrder::getDB()->whereIn('order_id', $orderIds)->update(compact('status'));
-    }
 
     /**
      * @param $id

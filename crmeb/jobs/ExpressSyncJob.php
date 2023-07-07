@@ -28,7 +28,6 @@ class ExpressSyncJob implements JobInterface
             Log::info(var_export($exception, 1));
         }
         $job->delete();
-
     }
 
     public function failed($data)

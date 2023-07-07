@@ -14,6 +14,7 @@
 namespace crmeb\services;
 
 
+use app\common\repositories\store\order\StoreOrderRepository;
 use app\common\repositories\store\product\ProductAssistSetRepository;
 use app\common\repositories\store\product\ProductGroupBuyingRepository;
 use app\common\repositories\store\product\ProductGroupRepository;
@@ -44,6 +45,7 @@ use Exception;
 use Symfony\Component\HttpFoundation\Request;
 use think\exception\ValidateException;
 use think\facade\Cache;
+use think\facade\Event;
 use think\facade\Log;
 use think\facade\Route;
 use think\Response;
@@ -74,7 +76,8 @@ class WechatService
         $this->application->register(new \crmeb\services\easywechat\certficates\ServiceProvider());
         $this->application->register(new \crmeb\services\easywechat\merchant\ServiceProvider);
         $this->application->register(new \crmeb\services\easywechat\combinePay\ServiceProvider);
-        $this->application->register(new \crmeb\services\easywechat\storePay\ServiceProvider);
+        $this->application->register(new \crmeb\services\easywechat\pay\ServiceProvider);
+        $this->application->register(new \crmeb\services\easywechat\batches\ServiceProvider);
     }
 
     /**
@@ -94,8 +97,7 @@ class WechatService
             $wechat['wechat_appid'] = trim($wechat['wecaht_app_appid']);
             $wechat['wechat_appsecret'] = trim($wechat['wechat_app_appsecret']);
         }
-        $payment = $make->more(['site_url', 'pay_weixin_mchid', 'pay_weixin_client_cert', 'pay_weixin_client_key', 'pay_weixin_key', 'pay_weixin_open',
-            'wechat_service_merid', 'wechat_service_key', 'wechat_service_v3key', 'wechat_service_client_cert', 'wechat_service_client_key', 'wechat_service_serial_no'], 0);
+        $payment = $make->more(['site_url', 'pay_weixin_mchid', 'pay_weixin_client_cert', 'pay_weixin_client_key', 'pay_weixin_key', 'pay_weixin_v3_key', 'pay_weixin_open','pay_wechat_serial_no_v3', 'wechat_service_merid', 'wechat_service_key', 'wechat_service_v3key', 'wechat_service_client_cert', 'wechat_service_client_key', 'wechat_service_serial_no'], 0);
         $config = [
             'app_id' => trim($wechat['wechat_appid']),
             'secret' => trim($wechat['wechat_appsecret']),
@@ -109,17 +111,24 @@ class WechatService
         ];
         if ($wechat['wechat_encode'] > 0 && $wechat['wechat_encodingaeskey'])
             $config['aes_key'] = trim($wechat['wechat_encodingaeskey']);
+        $is_v3 = false;
         if (isset($payment['pay_weixin_open']) && $payment['pay_weixin_open'] == 1) {
             $config['payment'] = [
                 'merchant_id' => trim($payment['pay_weixin_mchid']),
                 'key' => trim($payment['pay_weixin_key']),
+                'apiv3_key' => trim($payment['pay_weixin_v3_key']),
+                'serial_no' => trim($payment['pay_wechat_serial_no_v3']),
                 'cert_path' => (app()->getRootPath() . 'public' . $payment['pay_weixin_client_cert']),
                 'key_path' => (app()->getRootPath() . 'public' . $payment['pay_weixin_client_key']),
                 'notify_url' => $payment['site_url'] . Route::buildUrl('wechatNotify')->build(),
                 'pay_weixin_client_cert' => $payment['pay_weixin_client_cert'],
                 'pay_weixin_client_key' => $payment['pay_weixin_client_key'],
             ];
+            if ($config['payment']['apiv3_key']) {
+                $is_v3 = true;
+            }
         }
+        $config['is_v3'] = $is_v3;
         $config['service_payment'] = [
             'merchant_id' => trim($payment['wechat_service_merid']),
             'type' => 'wechat',
@@ -142,6 +151,16 @@ class WechatService
     public static function create($isApp = null)
     {
         return new self(self::getConfig($isApp));
+    }
+
+    public function isV3()
+    {
+        return $this->config['is_v3'] ?? false;
+    }
+
+    public function v3Pay()
+    {
+        return $this->application->v3Pay;
     }
 
     /**
@@ -267,6 +286,30 @@ class WechatService
                         case 'view':
                             event('wechat.event.view', compact('message'));
                             break;
+                        case 'funds_order_pay':
+                            if (($count = strpos($message['order_info']['trade_no'], '_')) !== false) {
+                                $trade_no = substr($message['order_info']['trade_no'], $count + 1);
+                            } else {
+                                $trade_no = $message['order_info']['trade_no'];
+                            }
+                            $prefix = substr($trade_no, 0, 3);
+                            //处理一下参数
+                            switch ($prefix) {
+                                case StoreOrderRepository::TYPE_SN_ORDER:
+                                    $attach = 'order';
+                                    break;
+                                case StoreOrderRepository::TYPE_SN_PRESELL:
+                                    $attach = 'presell';
+                                    break;
+                                case StoreOrderRepository::TYPE_SN_USER_ORDER:
+                                    $attach = 'user_order';
+                                    break;
+                                case StoreOrderRepository::TYPE_SN_USER_RECHARGE:
+                                    $attach = 'user_recharge';
+                                    break;
+                            }
+                            event('pay_success_' . $attach, ['order_sn' => $message['order_info']['trade_no'], 'data' => $message, 'is_combine' => 0]);
+                            break;
                     }
                     break;
                 case 'text':
@@ -389,16 +432,22 @@ class WechatService
     public function paymentPrepare($openid, $out_trade_no, $total_fee, $attach, $body, $detail = '', $trade_type = 'JSAPI', $options = [])
     {
         $order = $this->paymentOrder($openid, $out_trade_no, $total_fee, $attach, $body, $detail, $trade_type, $options);
-        $result = $this->application->payment->prepare($order);
-        if ($result->return_code == 'SUCCESS' && $result->result_code == 'SUCCESS') {
-            return $result;
+        if ($this->isV3()) {
+            if ($trade_type == 'MWEB') $trade_type = 'H5';
+            $payFunction = 'pay'.ucfirst($trade_type);
+            return $this->application->v3Pay->{$payFunction}($order);
         } else {
-            if ($result->return_code == 'FAIL') {
-                throw new WechatException('微信支付错误返回：' . $result->return_msg);
-            } else if (isset($result->err_code)) {
-                throw new WechatException('微信支付错误返回：' . $result->err_code_des);
+            $result = $this->application->payment->prepare($order);
+            if ($result->return_code == 'SUCCESS' && $result->result_code == 'SUCCESS') {
+                return $result;
             } else {
-                throw new WechatException('没有获取微信支付的预支付ID，请重新发起支付!');
+                if ($result->return_code == 'FAIL') {
+                    throw new WechatException('微信支付错误返回：' . $result->return_msg);
+                } else if (isset($result->err_code)) {
+                    throw new WechatException('微信支付错误返回：' . $result->err_code_des);
+                } else {
+                    throw new WechatException('没有获取微信支付的预支付ID，请重新发起支付!');
+                }
             }
         }
     }
@@ -419,6 +468,9 @@ class WechatService
     public function jsPay($openid, $out_trade_no, $total_fee, $attach, $body, $detail = '', $trade_type = 'JSAPI', $options = [])
     {
         $paymentPrepare = $this->paymentPrepare($openid, $out_trade_no, $total_fee, $attach, $body, $detail, $trade_type, $options);
+        if ($this->isV3()) {
+            return $paymentPrepare;
+        }
         return $trade_type === 'APP'
             ? $this->application->payment->configForAppPayment($paymentPrepare->prepay_id)
             : $this->application->payment->configForJSSDKPayment($paymentPrepare->prepay_id);
@@ -444,7 +496,11 @@ class WechatService
         }
         $totalFee = floatval($totalFee);
         $refundFee = floatval($refundFee);
-        return $this->application->payment->refund($orderNo, $refundNo, $totalFee, $refundFee, $opUserId, $type, $refundAccount, $refundReason);
+        if ($this->isV3()) {
+            return $this->application->v3Pay->refund($orderNo, $refundNo, $totalFee, $refundFee, $opUserId,  $type, $refundAccount, $refundReason);
+        } else {
+            return $this->application->payment->refund($orderNo, $refundNo, $totalFee, $refundFee, $opUserId, $type, $refundAccount, $refundReason);
+        }
     }
 
     /**
@@ -458,18 +514,19 @@ class WechatService
         if (!isset($opt['pay_price'])) throw new WechatException('缺少pay_price');
         $totalFee = floatval(bcmul($opt['pay_price'], 100, 0));
         $refundFee = isset($opt['refund_price']) ? floatval(bcmul($opt['refund_price'], 100, 0)) : null;
-        $refundReason = isset($opt['desc']) ? $opt['desc'] : '';
+        $refundReason = isset($opt['refund_message']) ? $opt['refund_message'] : '无';
         $refundNo = isset($opt['refund_id']) ? $opt['refund_id'] : $orderNo;
         $opUserId = isset($opt['op_user_id']) ? $opt['op_user_id'] : null;
         $type = isset($opt['type']) ? $opt['type'] : 'out_trade_no';
-        /*仅针对老资金流商户使用
-        REFUND_SOURCE_UNSETTLED_FUNDS---未结算资金退款（默认使用未结算资金退款）
-        REFUND_SOURCE_RECHARGE_FUNDS---可用余额退款*/
+
+        //若传递此参数则使用对应的资金账户退款，否则默认使用未结算资金退款（仅对老资金流商户适用）
         $refundAccount = isset($opt['refund_account']) ? $opt['refund_account'] : 'REFUND_SOURCE_UNSETTLED_FUNDS';
         try {
             $res = ($this->refund($orderNo, $refundNo, $totalFee, $refundFee, $opUserId, $refundReason, $type, $refundAccount));
-            if ($res->return_code == 'FAIL') throw new WechatException('退款失败:' . $res->return_msg);
-            if (isset($res->err_code)) throw new WechatException('退款失败:' . $res->err_code_des);
+            if (isset($res->return_code) &&  $res->return_code== 'FAIL')
+                throw new WechatException('退款失败:' . $res->return_msg);
+            if (isset($res->err_code))
+                throw new WechatException('退款失败:' . $res->err_code_des);
         } catch (Exception $e) {
             throw new WechatException($e->getMessage());
         }
@@ -517,9 +574,24 @@ class WechatService
         });
     }
 
+    public function handleNotifyV3()
+    {
+        return $this->application->v3Pay->handleNotify(function ($notify, $successful) {
+            Log::info('微信支付成功回调' . var_export($notify, 1));
+            if (!$successful) return false;
+            try {
+                event('pay_success_' . $notify['attach'], ['order_sn' => $notify['out_trade_no'], 'data' => $notify, 'is_combine' => 0]);
+            } catch (\Exception $e) {
+                Log::info('微信支付回调失败:' . $e->getMessage());
+                return false;
+            }
+            return true;
+        });
+    }
+
     public function handleCombinePayNotify($type)
     {
-        $this->application->combinePay->handleNotify(function ($notify, $successful) use ($type) {
+        return $this->application->combinePay->handleNotify(function ($notify, $successful) use ($type) {
             Log::info('微信支付成功回调' . var_export($notify, 1));
             if (!$successful) return false;
             try {
@@ -720,6 +792,46 @@ class WechatService
         return $this->application->storePay;
     }
 
+    /**
+     * TODO V3的商家到零钱
+     * @author Qinii
+     * @day 2023/3/13
+     */
+    public function companyPay($data)
+    {
+        $transfer_detail_list[] = [
+            'out_detail_no' => $data['sn'],
+            'transfer_amount' => $data['price'] * 100,
+            'transfer_remark' => $data['mark'] ?? '',
+            //openid是微信用户在公众号appid下的唯一用户标识
+            'openid' => $data['openid'],
+        ];
+        //商家到零钱
+        $ret = [
+            //商户系统内部的商家批次单号
+            'out_batch_no' => $data['sn'],
+            //该笔批量转账的名称
+            'batch_name' => $data['batch_name'],
+            //转账说明，UTF8编码，最多允许32个字符
+            'batch_remark' => $data['mark'] ?? '',
+            //转账金额单位为“分”
+            'total_amount' => $data['price'] * 100,
+            //转账总笔数一个转账批次单最多发起三千笔转账
+            'total_num' => 1,
+            //该批次转账使用的转账场景，可在「商家转账到零钱 - 产品设置」中查看详情，如不填写则使用商家的默认转账场景
+            'transfer_detail_list' => $transfer_detail_list,
+        ];
+        $result = $this->application->batches->send($ret);
+        return $result;
+    }
+
+    /**
+     * TODO V2的企业到零钱
+     * @param $data
+     * @return mixed
+     * @author Qinii
+     * @day 2023/3/13
+     */
     public function merchantPay($data)
     {
         $ret = [
@@ -728,11 +840,10 @@ class WechatService
             'check_name' => 'NO_CHECK',  //文档中有三种校验实名的方法 NO_CHECK OPTION_CHECK FORCE_CHECK
             //'re_user_name'=>'张三',     //OPTION_CHECK FORCE_CHECK 校验实名的时候必须提交
             'amount' => $data['price'] * 100,  //单位为分
-            'desc' => '企业付款',
+            'desc' => $data['mark'] ?? '',
             'spbill_create_ip' => request()->ip(),  //发起交易的IP地址
         ];
         $result = $this->application->merchant_pay->send($ret);
-
         if ($result->return_code == 'SUCCESS' && $result->result_code == 'SUCCESS') {
             return $result;
         } else {

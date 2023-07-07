@@ -60,17 +60,27 @@ class ProductAttrValue extends BaseModel
         return $this->getData('svip_price');
     }
 
+    public function getIsSvipPriceAttr()
+    {
+        if ($this->product->product_type == 0 && $this->product->svip_price_type == 1) {
+            $rate = merchantConfig($this->product->mer_id,'svip_store_rate');
+            $svip_store_rate = $rate > 0 ? bcdiv($rate,100,2) : 0;
+            return bcmul($this->price, $svip_store_rate,2);
+        }
+        return '未设置';
+    }
+
     public function getBcExtensionOneAttr()
     {
         if(!intval(systemConfig('extension_status')))  return 0;
-        if($this->extension_one > 0)  return $this->extension_one;
+        if($this->product->extension_type == 1)  return $this->extension_one;
         return floatval(round(bcmul(systemConfig('extension_one_rate'), $this->price, 3),2));
     }
 
     public function getBcExtensionTwoAttr()
     {
         if(!intval(systemConfig('extension_status')))  return 0;
-        if($this->extension_two > 0)  return $this->extension_two;
+        if($this->product->extension_type == 1)  return $this->extension_two;
         return floatval(round(bcmul(systemConfig('extension_two_rate'), $this->price, 3),2));
     }
 

@@ -78,17 +78,13 @@ class Diy extends BaseController
         $infoDiy = $id ? $this->repository->getWhere(['id' => $id, 'mer_id' => $data['mer_id']]) : [];
         if ($infoDiy && $infoDiy['is_default'])
             return app('json')->fail('默认模板不能修改');
-        if ($infoDiy && $infoDiy['is_diy']) {
-            foreach ($value as $key => &$item) {
+        if ($infoDiy) {
+            foreach ($value as $k => $item) {
                 if ($item['name'] === 'goodList') {
                     if (isset($item['selectConfig']['list'])) {
                         unset($item['selectConfig']['list']);
                     }
                     if (isset($item['goodsList']['list']) && is_array($item['goodsList']['list'])) {
-                        $limitMax = config('database.page.limitMax', 50);
-                        if (isset($item['numConfig']['val']) && isset($item['tabConfig']['tabVal']) && $item['tabConfig']['tabVal'] == 0 && $item['numConfig']['val'] > $limitMax) {
-                            return app('json')->fail('您设置得商品个数超出系统限制,最大限制' . $limitMax . '个商品');
-                        }
                         $item['goodsList']['ids'] = array_column($item['goodsList']['list'], 'product_id');
                         unset($item['goodsList']['list']);
                     }
@@ -99,6 +95,7 @@ class Diy extends BaseController
                 } elseif ($item['name'] === 'promotionList') {
                     unset($item['productList']['list']);
                 }
+                $value[$k] = $item;
             }
             $data['value'] = json_encode($value);
         } else {
@@ -127,7 +124,7 @@ class Diy extends BaseController
             } elseif (isset($value['selectList']['list']) && is_array($value['selectList']['list'])) {
                 unset($value['goodsList']['list']);
             }
-            $data['value'] = json_encode($value,JSON_UNESCAPED_UNICODE);
+            $data['value'] = json_encode($value, JSON_UNESCAPED_UNICODE);
         }
         $data['version'] = '1.0';
         return app('json')->success($id ? '修改成功' : '保存成功',

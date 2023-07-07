@@ -66,9 +66,9 @@ class Merchant extends BaseController
 
     public function systemDetail()
     {
-        $config = systemConfig(['site_logo', 'site_name']);
+        $config = systemConfig(['site_logo', 'site_name','login_logo']);
         return app('json')->success([
-            'mer_avatar' => $config['site_logo'],
+            'mer_avatar' => $config['login_logo'],
             'mer_name' => $config['site_name'],
             'mer_id' => 0,
         ]);
@@ -98,7 +98,7 @@ class Merchant extends BaseController
      */
     public function categoryList($id)
     {
-        if(!$this->repository->merExists($id))
+        if(!$this->repository->merExists((int)$id))
             return app('json')->fail('店铺已打烊');
         return app('json')->success($this->repository->categoryList($id));
     }

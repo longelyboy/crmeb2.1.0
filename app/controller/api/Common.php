@@ -99,7 +99,7 @@ class Common extends BaseController
 
     public function config()
     {
-        $config = systemConfig(['open_update_info', 'store_street_theme', 'is_open_service', 'is_phone_login', 'global_theme', 'integral_status', 'mer_location', 'alipay_open', 'hide_mer_status', 'mer_intention_open', 'share_info', 'share_title', 'share_pic', 'store_user_min_recharge', 'recharge_switch', 'balance_func_status', 'yue_pay_status', 'site_logo', 'routine_logo', 'site_name', 'login_logo', 'procudt_increase_status', 'sys_extension_type', 'member_status', 'copy_command_status', 'community_status','community_reply_status','community_app_switch', 'withdraw_type', 'recommend_switch', 'member_interests_status', 'beian_sn', 'community_reply_auth','hot_ranking_switch','svip_switch_status']);
+        $config = systemConfig(['open_update_info', 'store_street_theme', 'is_open_service', 'is_phone_login', 'global_theme', 'integral_status', 'mer_location', 'alipay_open', 'hide_mer_status', 'mer_intention_open', 'share_info', 'share_title', 'share_pic', 'store_user_min_recharge', 'recharge_switch', 'balance_func_status', 'yue_pay_status', 'site_logo', 'routine_logo', 'site_name', 'login_logo', 'procudt_increase_status', 'sys_extension_type', 'member_status', 'copy_command_status', 'community_status','community_reply_status','community_app_switch', 'withdraw_type', 'recommend_switch', 'member_interests_status', 'beian_sn', 'community_reply_auth','hot_ranking_switch','svip_switch_status','margin_ico','margin_ico_switch']);
         $make = app()->make(TemplateMessageRepository::class);
 
         $cache = app()->make(CacheRepository::class)->search(['copyright_status', 'copyright_context', 'copyright_image', 'sys_intention_agree']);
@@ -180,6 +180,9 @@ class Common extends BaseController
     public function wechatNotify()
     {
         try {
+            if($this->request->header('content-type') === 'application/json'){
+                return response(WechatService::create()->handleNotifyV3()->getContent());
+            }
             return response(WechatService::create()->handleNotify()->getContent());
         } catch (Exception $e) {
             Log::info('支付回调失败:' . var_export([$e->getMessage(), $e->getFile() . ':' . $e->getLine()], true));
@@ -194,7 +197,7 @@ class Common extends BaseController
         if (!in_array($type, ['order', 'presell'], true))
             throw new ValidateException('参数错误');
         try {
-            WechatService::create()->handleCombinePayNotify($type);
+            return WechatService::create()->handleCombinePayNotify($type);
         } catch (Exception $e) {
             Log::info('电商收付通支付回调失败:' . var_export([$e->getMessage(), $e->getFile() . ':' . $e->getLine()], true));
         }
@@ -208,7 +211,7 @@ class Common extends BaseController
         if (!in_array($type, ['order', 'presell'], true))
             throw new ValidateException('参数错误');
         try {
-            WechatService::create()->handleCombinePayNotify($type);
+            return WechatService::create()->handleCombinePayNotify($type);
         } catch (Exception $e) {
             Log::info('小程序电商收付通支付回调失败:' . var_export([$e->getMessage(), $e->getFile() . ':' . $e->getLine()], true));
         }
@@ -217,15 +220,18 @@ class Common extends BaseController
     public function routineNotify()
     {
         try {
+            if($this->request->header('content-type') === 'application/json'){
+                return response(MiniProgramService::create()->handleNotifyV3()->getContent());
+            }
             return response(MiniProgramService::create()->handleNotify()->getContent());
         } catch (Exception $e) {
-            Log::info('支付回调失败:' . var_export([$e->getMessage(), $e->getFile() . ':' . $e->getLine()], true));
+            Log::info('支付回调失败:' . var_export([$e->getMessage(), $e->getFile() . ':' . $e->getLine(),$this->request->header()], true));
         }
     }
 
     public function alipayNotify($type)
     {
-        if (!in_array($type, ['order', 'user_recharge', 'presell'], true))
+        if (!in_array($type, ['order', 'user_recharge', 'presell', 'user_order'], true))
             throw new ValidateException('参数错误');
         $post = $_POST;
         $get = $_GET;

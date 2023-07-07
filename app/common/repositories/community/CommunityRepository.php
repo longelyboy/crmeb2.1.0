@@ -261,22 +261,26 @@ class CommunityRepository extends BaseRepository
         foreach ($where as $item) {
             switch ($item['product_type']){
                 case 0:
-                    $id = $item['product_id'];
+                    $sid = $item['product_id'];
                    // nobreak;
                 case 1:
-                    $id = $item['product_id'];
+                    $sid = $item['product_id'];
                     break;
                 case 2:
-                    $id = $item['activity_id'];
+                    $sid = $item['activity_id'];
                     break;
                 case 3:
-                    $id = $item['cart_info']['productAssistSet']['product_assist_id'];
+                    $sid = $item['cart_info']['productAssistSet']['product_assist_id'];
                     break;
                 case 4:
-                    $id = $item['cart_info']['product']['productGroup']['product_group_id'];
+                    $sid = $item['cart_info']['product']['productGroup']['product_group_id'];
                     break;
+                default:
+                    $sid = $item['product_id'];
+                    break;
+
             }
-            $data[] = $make->getSpuData($id, $item['product_type'],0);
+            $data[] = $make->getSpuData($sid, $item['product_type'],0);
         }
         return $data;
     }
@@ -479,7 +483,8 @@ class CommunityRepository extends BaseRepository
     {
         $where = array_merge(['spu_id' => $spuId], self::IS_SHOW_WHERE);
         return $this->dao->getSearch($where)
-            ->field('community_id,title,image')
+            ->order('create_time DESC')
+            ->field('community_id,title,image,is_type')
             ->limit(3)->select();
     }
 
@@ -491,8 +496,8 @@ class CommunityRepository extends BaseRepository
         if ($type == 'routine') {
             $name = md5('rcwx' . $id . $type . $user->uid . $user['is_promoter'] . date('Ymd')) . '.jpg';
             $params = 'id=' . $id . '&spid=' . $user['uid'];
-            $link = '/pages/short_video/nvueSwiper/index?id=';
-            $make->getRoutineQrcodePath($name, $link, $params);
+            $link = 'pages/short_video/nvueSwiper/index';
+            return $make->getRoutineQrcodePath($name, $link, $params);
         } else {
             $name = md5('cwx' . $id . $type . $user->uid . $user['is_promoter'] . date('Ymd')) . '.jpg';
             $link = 'pages/short_video/nvueSwiper/index';

@@ -15,6 +15,7 @@ namespace app\common\dao\community;
 
 use app\common\dao\BaseDao;
 use app\common\model\community\Community;
+use app\common\model\system\Relevance;
 use app\common\repositories\system\RelevanceRepository;
 
 class CommunityDao extends BaseDao
@@ -33,7 +34,6 @@ class CommunityDao extends BaseDao
             });
             $query->where(true);
         });
-
         $query
             ->when(isset($where['keyword']) && $where['keyword'] !==  '', function ($query) use($where) {
                 $query->whereLike('Community.title',"%{$where['keyword']}%");
@@ -73,6 +73,12 @@ class CommunityDao extends BaseDao
             })
             ->when(isset($where['category_id']) && $where['category_id'] !==  '', function ($query) use($where) {
                 $query->where('Community.category_id',$where['category_id']);
+            })
+            ->when(isset($where['spu_id']) && $where['spu_id'] !==  '', function ($query) use($where) {
+                $id = Relevance::where('right_id', $where['spu_id'])
+                    ->where('type',RelevanceRepository::TYPE_COMMUNITY_PRODUCT)
+                    ->column('left_id');
+                $query->where('community_id','in', $id);
             });
 
         $order = 'Community.create_time DESC';

@@ -31,6 +31,7 @@ use app\common\repositories\wechat\WechatUserRepository;
 use crmeb\listens\pay\UserRechargeSuccessListen;
 use crmeb\services\template\Template;
 use app\common\repositories\user\UserRepository;
+use think\facade\Log;
 use think\facade\Route;
 
 class WechatTemplateMessageService
@@ -78,7 +79,8 @@ class WechatTemplateMessageService
     public function subscribeSendTemplate($data)
     {
         event('wechat.subscribeTemplate.before',compact('data'));
-        $res = $this->subscribeTemplateMessage($data['tempCode'],$data['id']);
+        $res = $this->subscribeTemplateMessage($data);
+        Log::info('订阅消息发送Data' . var_export($data, 1));
         if(!$res || !is_array($res))return true;
 
         foreach($res as $item){
@@ -111,6 +113,7 @@ class WechatTemplateMessageService
     public function getUserOpenID($uid,$type = 'wechat')
     {
         $user = app()->make(UserRepository::class)->get($uid);
+        if (!$user) return null;
         $make = app()->make(WechatUserRepository::class);
         if($type == 'wechat') {
             return $make->idByOpenId((int)$user['wechat_user_id']);
@@ -383,7 +386,7 @@ class WechatTemplateMessageService
                  */
                 $res = $refund_make->get($id);
                 if(!$res || $res['status'] != 1) return false;
-                $data = [
+                $data[] = [
                     'tempCode' => 'REFUND_SUCCESS_CODE',
                     'uid' => $res->uid,
                     'data' => [
@@ -408,7 +411,7 @@ class WechatTemplateMessageService
                  */
                 $res = $refund_make->get($id);
                 if(!$res || $res['status'] != -1) return false;
-                $data = [
+                $data[] = [
                     'tempCode' => 'REFUND_FAIL_CODE',
                     'uid' => $res->uid,
                     'data' => [
@@ -435,7 +438,7 @@ class WechatTemplateMessageService
                  */
                 $res = $refund_make->get($id);
                 if(!$res || $res['status'] != 3) return false;
-                $data = [
+                $data[] = [
                     'tempCode' => 'REFUND_CONFORM_CODE',
                     'uid' => $res->uid,
                     'data' => [
@@ -572,7 +575,6 @@ class WechatTemplateMessageService
                     'link' => $stie_url.$params['url'],
                     'color' => null
                 ];
-                halt($data);
                 break;
             default:
                 break;
@@ -631,7 +633,6 @@ class WechatTemplateMessageService
                     发货时间{{time3.DATA}}
                     订单商品{{thing5.DATA}}
                      */
-
                     'data' => [
                         'character_string2' => $res->delivery_id,
                         'thing1' => $res->delivery_name,

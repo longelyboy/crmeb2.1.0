@@ -190,7 +190,7 @@ class StoreOrder extends BaseController
                 $method = 'delivery';
                 break;
         }
-        $repository->runDelivery($id,$merId, $data, $split, $method);
+        $repository->runDelivery($id,$merId, $data, $split, $method, $this->request->serviceInfo()->service_id);
         return app('json')->success('发货成功');
     }
 
@@ -328,7 +328,8 @@ class StoreOrder extends BaseController
     {
         $order = $orderRepository->getWhere(['order_id' => $id,'mer_id' => $merId]);
         if (!$order)  return app('json')->fail('数据不存在');
-        $orderRepository->verifyOrder($order->verify_code, $merId, 0);
+        $data = $this->request->params(['verify_code','data']);
+        $orderRepository->verifyOrder($order->verify_code, $merId, $data,  $this->request->serviceInfo()->service_id);
         return app('json')->success('订单核销成功');
     }
 

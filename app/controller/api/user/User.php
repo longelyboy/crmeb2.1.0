@@ -434,7 +434,7 @@ class User extends BaseController
     public function services()
     {
         $uid = $this->user->uid;
-        $where = $this->request->params(['is_verify', 'customer', 'is_goods', 'is_open']);
+        $where = $this->request->params(['is_verify', 'customer', 'is_goods', ['is_open',1]]);
         $is_sys = $this->request->param('is_sys');
         return app('json')->success(app()->make(StoreServiceRepository::class)->getServices($uid, $where,$is_sys));
     }

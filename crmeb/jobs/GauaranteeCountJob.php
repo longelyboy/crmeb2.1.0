@@ -28,7 +28,6 @@ class GauaranteeCountJob implements JobInterface
             Log::info($exception->getMessage());
         }
         $job->delete();
-
     }
 
     public function failed($data)

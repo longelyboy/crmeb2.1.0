@@ -47,7 +47,7 @@ class Product extends BaseController
     public function lst()
     {
         [$page, $limit] = $this->getPage();
-        $where = $this->request->params(['temp_id','cate_id','keyword',['type',1],'mer_cate_id','is_gift_bag','status','us_status','product_id','mer_labels',['order','sort'],'is_ficti']);
+        $where = $this->request->params(['temp_id','cate_id','keyword',['type',1],'mer_cate_id','is_gift_bag','status','us_status','product_id','mer_labels',['order','sort'],'is_ficti','svip_price_type']);
         $where = array_merge($where,$this->repository->switchType($where['type'],$this->request->merId(),0));
         return app('json')->success($this->repository->getList($this->request->merId(),$where, $page, $limit));
     }

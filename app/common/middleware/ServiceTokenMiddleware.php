@@ -61,8 +61,6 @@ class ServiceTokenMiddleware extends BaseMiddleware
                 throw new AuthException('账号不存在');
             if (!$admin['is_open'])
                 throw new AuthException('账号未开启');
-            if (!$admin['status'])
-                throw new AuthException('账号已被禁用');
             if($admin->mer_id){
                 if (!$admin->merchant)
                     throw new AuthException('商户不存在');
@@ -99,6 +97,9 @@ class ServiceTokenMiddleware extends BaseMiddleware
         });
         $request->macro('adminInfo', function () use (&$admin) {
             return $admin;
+        });
+        $request->macro('userType', function () use (&$merchant) {
+            return 4;
         });
     }
 

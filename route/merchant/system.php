@@ -17,26 +17,7 @@ use app\common\middleware\MerchantCheckBaseInfoMiddleware;
 
 Route::group(function () {
 
-    //导出文件
-    Route::group('excel',function(){
-        Route::get('/lst', '/lst')->name('merchantStoreExcelLst')->option([
-            '_alias' => '列表',
-        ]);
-        Route::get('/download/:id', '/download')->name('merchantStoreExcelDownload')->option([
-            '_alias' => '下载',
-        ]);
-        Route::get('/download_express', '/downloadExpress')->name('merchantStoreExcelDownloadExpress')->option([
-            '_alias' => '下载快递公司',
-        ]);
-        Route::get('/type', '/type')->name('merchantStoreExcelType')->option([
-            '_alias' => '文件类型',
-            '_auth'  => false,
-        ]);
-    })->prefix('merchant.store.Excel')->option([
-        '_path' => '/export/list',
-        '_auth' => true,
-    ]);
-
+    Route::get('excel/download/express', 'merchant.store.Excel/downloadExpress');
     //打印机
     Route::group('store/printer', function () {
         //lst

@@ -52,19 +52,6 @@ class PresellOrderRepository extends BaseRepository
         $this->dao = $dao;
     }
 
-    /**
-     * @return string
-     * @author xaboy
-     * @day 2020/6/9
-     */
-    public function getNewOrderId()
-    {
-        list($msec, $sec) = explode(' ', microtime());
-        $msectime = number_format((floatval($msec) + floatval($sec)) * 1000, 0, '', '');
-        $orderId = 'ps' . $msectime . mt_rand(10000, max(intval($msec * 10000) + 10000, 98369));
-        return $orderId;
-    }
-
     public function createOrder($uid, $orderId, $price, $final_start_time, $final_end_time)
     {
         return $this->dao->create([
@@ -73,7 +60,7 @@ class PresellOrderRepository extends BaseRepository
             'final_start_time' => $final_start_time,
             'final_end_time' => $final_end_time,
             'pay_price' => $price,
-            'presell_order_sn' => $this->getNewOrderId()
+            'presell_order_sn' => app()->make(StoreOrderRepository::class)->getNewOrderId(StoreOrderRepository::TYPE_SN_PRESELL)
         ]);
     }
 
@@ -142,12 +129,15 @@ class PresellOrderRepository extends BaseRepository
             }
             $order->order->save();
             $order->save();
+            //订单记录
+            $statusRepository = app()->make(StoreOrderStatusRepository::class);
             $orderStatus = [
                 'order_id' => $order->order_id,
+                'order_sn' => $order->order_sn,
+                'type' => $statusRepository::TYPE_ORDER,
                 'change_message' => '订单尾款支付成功',
-                'change_type' => 'presell'
+                'change_type' => $statusRepository::ORDER_STATUS_PRESELL,
             ];
-
             $i = 1;
             $finance = [];
 
@@ -284,7 +274,7 @@ class PresellOrderRepository extends BaseRepository
             app()->make(ProductPresellSkuRepository::class)->incCount($order->order->orderProduct[0]['activity_id'], $order->order->orderProduct[0]['product_sku'], 'two_pay');
             app()->make(UserMerchantRepository::class)->updatePayTime($order->uid, $order->mer_id, $order->pay_price, false);
             app()->make(FinancialRecordRepository::class)->insertAll($finance);
-            app()->make(StoreOrderStatusRepository::class)->create($orderStatus);
+            $statusRepository->createUserLog($orderStatus);
         });
         if ($order->user->spread_uid) {
             Queue::push(UserBrokerageLevelJob::class, ['uid' => $order->user->spread_uid, 'type' => 'spread_money', 'inc' => $order->pay_price]);
@@ -297,19 +287,23 @@ class PresellOrderRepository extends BaseRepository
     {
         $order = $this->dao->getWhere(['presell_order_id' => $id, 'paid' => 0]);
         if (!$order) return;
+        //订单记录
+        $statusRepository = app()->make(StoreOrderStatusRepository::class);
 
         $orderStatus = [
             'order_id' => $order->order_id,
+            'order_sn' => $order->order_sn,
+            'type' => $statusRepository::TYPE_ORDER,
             'change_message' => '预售订单超时支付自动关闭',
-            'change_type' => 'presell_close'
+            'change_type' => $statusRepository::ORDER_STATUS_PRESELL_CLOSE,
         ];
         event('order.presll.fail.before', compact('order'));
         $productRepository = app()->make(ProductRepository::class);
-        Db::transaction(function () use ($productRepository, $order, $orderStatus) {
-            app()->make(StoreOrderStatusRepository::class)->create($orderStatus);
+        Db::transaction(function () use ($productRepository, $order, $orderStatus,$statusRepository) {
+            $statusRepository->createSysLog($orderStatus);
             $order->order->status = 11;
             $order->status = 0;
-            $order->save();
+            $order->save();+
             $order->order->save();
             foreach ($order->order->orderProduct as $cart) {
                 $productRepository->orderProductIncStock($order->order, $cart);

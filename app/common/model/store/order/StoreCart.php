@@ -93,7 +93,7 @@ class StoreCart extends BaseModel
 
     public function getProductDiscountAttrAttr()
     {
-        return app()->make(ProductSkuRepository::class)->getSearch(['active_id' => $this->source_id, 'unique' => $this->product_attr_unique])->find();
+        return app()->make(ProductSkuRepository::class)->getSearch(['active_id' => $this->source_id, 'unique' => $this->product_attr_unique,'active_type'=> 10])->find();
     }
 
     public function productAssistSet()

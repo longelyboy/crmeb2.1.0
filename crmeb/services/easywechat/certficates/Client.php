@@ -24,7 +24,7 @@ class Client extends BaseClient
     public function get()
     {
         $driver = Cache::store('file');
-        $cacheKey = '_wx_v3' . $this->app['config']['service_payment']['serial_no'];
+        $cacheKey = '_wx_v3' . ($this->isService ? $this->app['config']['service_payment']['serial_no'] : $this->app['config']['payment']['serial_no']);
         if ($driver->has($cacheKey)) {
             return $driver->get($cacheKey);
         }

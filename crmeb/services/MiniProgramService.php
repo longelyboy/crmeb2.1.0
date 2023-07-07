@@ -14,6 +14,7 @@
 namespace crmeb\services;
 
 
+use crmeb\exceptions\WechatException;
 use crmeb\services\easywechat\broadcast\Client;
 use crmeb\services\easywechat\broadcast\ServiceProvider;
 use crmeb\services\easywechat\subscribe\ProgramProvider;
@@ -56,6 +57,9 @@ class MiniProgramService
         $this->service->register(new \crmeb\services\easywechat\certficates\ServiceProvider);
         $this->service->register(new \crmeb\services\easywechat\combinePay\ServiceProvider);
         $this->service->register(new \crmeb\services\easywechat\msgseccheck\ServiceProvider);
+        $this->service->register(new \crmeb\services\easywechat\pay\ServiceProvider);
+        $this->service->register(new \crmeb\services\easywechat\miniPayment\ServiceProvider);
+        $this->service->register(new \crmeb\services\easywechat\batches\ServiceProvider);
     }
 
     /**
@@ -76,9 +80,8 @@ class MiniProgramService
     public static function getConfig()
     {
         $wechat = systemConfig(['site_url', 'routine_appId', 'routine_appsecret']);
-        $payment = systemConfig(['pay_routine_mchid', 'pay_routine_key', 'pay_routine_client_cert', 'pay_routine_client_key', 'pay_weixin_open',
-            'wechat_service_merid', 'wechat_service_key', 'wechat_service_v3key', 'wechat_service_client_cert', 'wechat_service_client_key', 'wechat_service_serial_no']);
-        return [
+        $payment = systemConfig(['pay_routine_mchid', 'pay_routine_key', 'pay_routine_v3_key', 'pay_routine_serial_no_v3', 'pay_routine_client_cert', 'pay_routine_client_key', 'pay_weixin_open', 'wechat_service_merid', 'wechat_service_key', 'wechat_service_v3key', 'wechat_service_client_cert', 'wechat_service_client_key', 'wechat_service_serial_no','pay_routine_new_mchid']);
+        $config = [
             'app_id' => $wechat['routine_appId'],
             'secret' => $wechat['routine_appsecret'],
             'mini_program' => [
@@ -91,6 +94,8 @@ class MiniProgramService
                 'app_id' => $wechat['routine_appId'],
                 'merchant_id' => trim($payment['pay_routine_mchid']),
                 'key' => trim($payment['pay_routine_key']),
+                'apiv3_key' => trim($payment['pay_routine_v3_key']),
+                'serial_no' => trim($payment['pay_routine_serial_no_v3']),
                 'cert_path' => (app()->getRootPath() . 'public' . $payment['pay_routine_client_cert']),
                 'key_path' => (app()->getRootPath() . 'public' . $payment['pay_routine_client_key']),
                 'notify_url' => $wechat['site_url'] . Route::buildUrl('routineNotify')->build(),
@@ -107,8 +112,22 @@ class MiniProgramService
                 'pay_weixin_client_key' => $payment['wechat_service_client_key'],
                 'serial_no' => trim($payment['wechat_service_serial_no']),
                 'apiv3_key' => trim($payment['wechat_service_v3key']),
-            ]
+            ],
+            'pay_routine_new_mchid' => $payment['pay_routine_new_mchid'],
         ];
+
+        $config['is_v3'] = !empty($config['payment']['apiv3_key']);
+        return $config;
+    }
+
+    public function isV3()
+    {
+        return $this->config['is_v3'] ?? false;
+    }
+
+    public function v3Pay()
+    {
+        return $this->service->v3Pay;
     }
 
 
@@ -237,16 +256,32 @@ class MiniProgramService
     public function paymentPrepare($openid, $out_trade_no, $total_fee, $attach, $body, $detail = '', $trade_type = 'JSAPI', $options = [])
     {
         $order = $this->paymentOrder($openid, $out_trade_no, $total_fee, $attach, $body, $detail, $trade_type, $options);
-        $result = $this->paymentService()->prepare($order);
-        if ($result->return_code == 'SUCCESS' && $result->result_code == 'SUCCESS') {
-            return $result->prepay_id;
-        } else {
-            if ($result->return_code == 'FAIL') {
-                throw new ValidateException('微信支付错误返回：' . $result->return_msg);
-            } else if (isset($result->err_code)) {
-                throw new ValidateException('微信支付错误返回：' . $result->err_code_des);
+        // 获取配置  判断是否为新支付
+        if (isset($this->config['pay_routine_new_mchid']) && $this->config['pay_routine_new_mchid']) {
+            $result = $this->service->minipay->createorder($order);
+            if ($result->errcode === 0) {
+                return $result->payment_params;
             } else {
-                throw new ValidateException('没有获取微信支付的预支付ID，请重新发起支付!');
+                throw new ValidateException('微信支付错误返回：' . $result->return_msg);
+            }
+        } else {
+            if ($this->v3Pay()) {
+                if ($trade_type == 'MWEB') $trade_type = 'H5';
+                $payFunction = 'pay'.ucfirst($trade_type);
+                return $this->service->v3Pay->{$payFunction}($order);
+            } else {
+                $result = $this->paymentService()->prepare($order);
+                if ($result->return_code == 'SUCCESS' && $result->result_code == 'SUCCESS') {
+                    return $result->prepay_id;
+                } else {
+                    if ($result->return_code == 'FAIL') {
+                        throw new ValidateException('微信支付错误返回：' . $result->return_msg);
+                    } else if (isset($result->err_code)) {
+                        throw new ValidateException('微信支付错误返回：' . $result->err_code_des);
+                    } else {
+                        throw new ValidateException('没有获取微信支付的预支付ID，请重新发起支付!');
+                    }
+                }
             }
         }
     }
@@ -265,7 +300,11 @@ class MiniProgramService
      */
     public function jsPay($openid, $out_trade_no, $total_fee, $attach, $body, $detail = '', $trade_type = 'JSAPI', $options = [])
     {
-        return $this->paymentService()->configForJSSDKPayment($this->paymentPrepare($openid, $out_trade_no, $total_fee, $attach, $body, $detail, $trade_type, $options));
+        $paymentPrepare = $this->paymentPrepare($openid, $out_trade_no, $total_fee, $attach, $body, $detail, $trade_type, $options);
+        if ($this->isV3()) {
+            return $paymentPrepare;
+        }
+        return $this->paymentService()->configForJSSDKPayment($paymentPrepare);
     }
 
     /**
@@ -280,14 +319,22 @@ class MiniProgramService
      * @param string $refundAccount
      * @return Collection|ResponseInterface
      */
-    public function refund($orderNo, $refundNo, $totalFee, $refundFee = null, $opUserId = null, $refundReason = '', $type = 'out_trade_no', $refundAccount = 'REFUND_SOURCE_UNSETTLED_FUNDS')
+    public function refund($orderNo, $refundNo, $totalFee, $refundFee = null, $opUserId = null, $refundReason = '', $type = 'out_trade_no', $refundAccount = 'REFUND_SOURCE_UNSETTLED_FUNDS',$openId = null, $transactionId = null)
     {
         if (empty($this->config['payment']['pay_routine_client_key']) || empty($this->config['payment']['pay_routine_client_cert'])) {
             throw new \Exception('请配置微信支付证书');
         }
         $totalFee = floatval($totalFee);
         $refundFee = floatval($refundFee);
-        return $this->paymentService()->refund($orderNo, $refundNo, $totalFee, $refundFee, $opUserId, $type, $refundAccount, $refundReason);
+        if ($this->config['pay_routine_new_mchid']) {
+            return $this->service->minipay->refund($orderNo, $refundNo, $totalFee, $refundFee,$openId,$transactionId);
+        } else {
+            if ($this->isV3()) {
+                return $this->service->v3Pay->refund($orderNo, $refundNo, $totalFee, $refundFee, $opUserId,  $type, $refundAccount, $refundReason);
+            } else {
+                return $this->paymentService()->refund($orderNo, $refundNo, $totalFee, $refundFee, $opUserId, $type, $refundAccount, $refundReason);
+            }
+        }
     }
 
     /**
@@ -318,15 +365,19 @@ class MiniProgramService
         if (!isset($opt['pay_price'])) throw new ValidateException('缺少pay_price');
         $totalFee = floatval(bcmul($opt['pay_price'], 100, 0));
         $refundFee = isset($opt['refund_price']) ? floatval(bcmul($opt['refund_price'], 100, 0)) : null;
-        $refundReason = isset($opt['desc']) ? $opt['desc'] : '';
+        $refundReason = isset($opt['refund_message']) ? $opt['refund_message'] : '无';
         $refundNo = isset($opt['refund_id']) ? $opt['refund_id'] : $orderNo;
         $opUserId = isset($opt['op_user_id']) ? $opt['op_user_id'] : null;
         $type = isset($opt['type']) ? $opt['type'] : 'out_trade_no';
         $refundAccount = isset($opt['refund_account']) ? $opt['refund_account'] : 'REFUND_SOURCE_UNSETTLED_FUNDS';
+        $openId = $opt['open_id'] ?? null;
+        $transactionId = $opt['transaction_id'] ?? null;
         try {
-            $res = ($this->refund($orderNo, $refundNo, $totalFee, $refundFee, $opUserId, $refundReason, $type, $refundAccount));
-            if ($res->return_code == 'FAIL') throw new ValidateException('退款失败:' . $res->return_msg);
-            if (isset($res->err_code)) throw new ValidateException('退款失败:' . $res->err_code_des);
+            $res = ($this->refund($orderNo, $refundNo, $totalFee, $refundFee, $opUserId, $refundReason, $type, $refundAccount, $openId, $transactionId));
+            if (isset($res->return_code) &&  $res->return_code== 'FAIL')
+                throw new ValidateException('退款失败:' . $res->return_msg);
+            if (isset($res->err_code))
+                throw new ValidateException('退款失败:' . $res->err_code_des);
         } catch (\Exception $e) {
             throw new ValidateException($e->getMessage());
         }
@@ -355,6 +406,21 @@ class MiniProgramService
         });
     }
 
+    public function handleNotifyV3()
+    {
+        return $this->service->v3Pay->handleNotify(function ($notify, $successful) {
+            Log::info('小程序支付回调' . var_export($notify, 1));
+            if (!$successful) return;
+            try {
+                event('pay_success_' . $notify['attach'], ['order_sn' => $notify['out_trade_no'], 'data' => $notify]);
+            } catch (\Exception $e) {
+                Log::info('小程序支付回调失败:' . $e->getMessage());
+                return false;
+            }
+            return true;
+        });
+    }
+
     /**
      * @return easywechat\combinePay\Client
      */
@@ -365,7 +431,7 @@ class MiniProgramService
 
     public function handleCombinePayNotify($type)
     {
-        $this->service->combinePay->handleNotify(function ($notify, $successful) use ($type) {
+       return $this->service->combinePay->handleNotify(function ($notify, $successful) use ($type) {
             Log::info('微信支付成功回调' . var_export($notify, 1));
             if (!$successful) return false;
             try {
@@ -423,7 +489,6 @@ class MiniProgramService
     {
         try{
             $res = $this->miniprogram()->now_notice->getPrivateTemplates();
-            return $res;
             if (isset($res['errcode']) && $res['errcode'] == 0 && isset($res['priTmplId'])) {
                 return $res['priTmplId'];
             } else {
@@ -449,4 +514,70 @@ class MiniProgramService
             return $this->service->msgSec->msgSecCheck($content,$scene,$openid);
         }
     }
+
+    /**
+     * TODO V3的商家到零钱
+     * @author Qinii
+     * @day 2023/3/13
+     */
+    public function companyPay($data)
+    {
+        $transfer_detail_list[] = [
+            'out_detail_no' => $data['sn'],
+            'transfer_amount' => $data['price'] * 100,
+            'transfer_remark' => $data['mark'] ?? '',
+            //openid是微信用户在公众号appid下的唯一用户标识
+            'openid' => $data['openid'],
+        ];
+        //商家到零钱
+        $ret = [
+            //商户系统内部的商家批次单号
+            'out_batch_no' => $data['sn'],
+            //该笔批量转账的名称
+            'batch_name' => $data['batch_name'],
+            //转账说明，UTF8编码，最多允许32个字符
+            'batch_remark' => $data['mark'] ?? '',
+            //转账金额单位为“分”
+            'total_amount' => $data['price'] * 100,
+            //转账总笔数一个转账批次单最多发起三千笔转账
+            'total_num' => 1,
+            //该批次转账使用的转账场景，可在「商家转账到零钱 - 产品设置」中查看详情，如不填写则使用商家的默认转账场景
+            'transfer_detail_list' => $transfer_detail_list,
+        ];
+        $result = $this->service->batches->send($ret);
+        return $result;
+    }
+
+    /**
+     * TODO V2的企业到零钱
+     * @param $data
+     * @return mixed
+     * @author Qinii
+     * @day 2023/3/13
+     */
+    public function merchantPay($data)
+    {
+        $ret = [
+            'partner_trade_no' => $data['sn'], //随机字符串作为订单号，跟红包和支付一个概念。
+            'openid' => $data['openid'], //收款人的openid
+            'check_name' => 'NO_CHECK',  //文档中有三种校验实名的方法 NO_CHECK OPTION_CHECK FORCE_CHECK
+            //'re_user_name'=>'张三',     //OPTION_CHECK FORCE_CHECK 校验实名的时候必须提交
+            'amount' => $data['price'] * 100,  //单位为分
+            'desc' => $data['mark'] ?? '',
+            'spbill_create_ip' => request()->ip(),  //发起交易的IP地址
+        ];
+        $result = $this->service->merchant_pay->send($ret);
+        if ($result->return_code == 'SUCCESS' && $result->result_code == 'SUCCESS') {
+            return $result;
+        } else {
+            if ($result->return_code == 'FAIL') {
+                throw new WechatException('微信支付错误返回：' . $result->return_msg);
+            } else if (isset($result->err_code)) {
+                throw new WechatException('微信支付错误返回：' . $result->err_code_des);
+            } else {
+                throw new WechatException('微信支付错误返回：' . $result->return_msg);
+            }
+        }
+    }
+
 }

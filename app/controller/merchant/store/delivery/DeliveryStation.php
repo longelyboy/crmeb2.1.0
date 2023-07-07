@@ -124,6 +124,7 @@ class DeliveryStation extends BaseController
             $make->scene('dada')->check($data);
         } else {
             $make->check($data);
+            [$data['lng'],$data['lat']] = gcj02ToBd09($data['lng'],$data['lat']);
         }
         return $data;
     }
@@ -181,7 +182,7 @@ class DeliveryStation extends BaseController
     public function getQrcode()
     {
         if (systemConfig('delivery_status') != 1) throw new ValidateException('未开启同城配送');
-        $data['pay_type'] = 1;
+        $data['pay_type'] = $this->request->param('pay_type',1);
         $data['price']  = $this->request->param('price',10);
         if (!is_numeric($data['price']) || $data['price'] <= 0 )
             return app('json')->fail('支付金额不正确');

@@ -10,10 +10,12 @@
 // +----------------------------------------------------------------------
 namespace app\common\repositories\store\product;
 
+use app\common\model\store\order\StoreOrder;
 use app\common\model\store\product\ProductGroupBuying;
 use app\common\repositories\BaseRepository;
 use app\common\dao\store\product\ProductGroupBuyingDao;
 use app\common\repositories\store\order\StoreOrderRepository;
+use app\common\repositories\store\order\StoreOrderStatusRepository;
 use app\common\repositories\store\order\StoreRefundOrderRepository;
 use app\common\repositories\user\UserRepository;
 use crmeb\jobs\CancelGroupBuyingJob;
@@ -191,9 +193,33 @@ class ProductGroupBuyingRepository extends BaseRepository
         app()->make(ProductGroupRepository::class)->incField($res['product_group_id'], 'success_num', 1);
         $productGroupUserRepository = app()->make(ProductGroupUserRepository::class);
         $productGroupUserRepository->updateStatus($res['group_buying_id']);
-        $orderIds = $productGroupUserRepository->groupOrderIds($res['group_buying_id']);
-        app()->make(StoreOrderRepository::class)->groupBuyingStatus($orderIds, 0);
-        Queue::push(SendSmsJob::class,['tempId' => 'USER_BALANCE_CHANGE', 'id' => $res->group_buying_id]);
+        $user = $productGroupUserRepository->groupOrderIds($res['group_buying_id']);
+        $storeOrderStatusRepository = app()->make(storeOrderStatusRepository::class);
+        $data = $orderIds = [];
+        foreach ($user as $item) {
+            $data[] = [
+                'order_id' => $item['order_id'],
+                'order_sn' => $item['orderInfo']['order_sn'],
+                'type' => $storeOrderStatusRepository::TYPE_ORDER,
+                'change_message' => '拼团成功',
+                'change_type' => $storeOrderStatusRepository::ORDER_STATUS_GROUP_SUCCESS,
+                'uid' => 0,
+                'nickname' => '系统',
+                'user_type' => $storeOrderStatusRepository::U_TYPE_SYSTEM,
+            ];
+            $orderIds[] = $item['order_id'];
+        }
+        if ($data && $orderIds) {
+            Db::transaction(function () use ($storeOrderStatusRepository, $orderIds, $data, $res) {
+                $storeOrderStatusRepository->batchCreateLog($data);
+                app()->make(StoreOrderRepository::class)
+                    ->getSearch([])
+                    ->whereIn('order_id', $orderIds)
+                    ->update(['status' => 0]);
+                Queue::push(SendSmsJob::class, ['tempId' => 'USER_BALANCE_CHANGE', 'id' => $res->group_buying_id]);
+            });
+        }
+
     }
 
 

@@ -47,8 +47,8 @@ class Discounts extends BaseController
                 ->column('discount_id');
             $where['discount_id'] = $discount_id;
         }
-
-        return app('json')->success($this->repository->getApilist($where));
+        $data = $this->repository->getApilist($where);
+        return app('json')->success($data);
     }
 
 

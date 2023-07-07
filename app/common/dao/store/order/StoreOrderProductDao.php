@@ -53,7 +53,7 @@ class StoreOrderProductDao extends BaseDao
     public function userOrderProduct($id, $uid)
     {
         return StoreOrderProduct::getDB()->where('uid', $uid)->where('order_product_id', $id)->with(['orderInfo' => function (Relation $query) {
-            $query->field('order_id,mer_id')->where('status', 2);
+            $query->field('order_id,order_sn,mer_id')->where('status', 2);
         }])->find();
     }
 
@@ -133,14 +133,11 @@ class StoreOrderProductDao extends BaseDao
     public function getUserPayProduct(?string  $keyword, int $uid)
     {
         $query = StoreOrderProduct::hasWhere('spu',function($query) use($keyword){
-
             $query->when($keyword, function ($query) use($keyword) {
                $query->whereLike('store_name',"%{$keyword}%");
             });
-
             $query->where('product_type',0);
         });
-
         $query->where('uid', $uid)->where('StoreOrderProduct.product_type',0);
         return  $query;
     }

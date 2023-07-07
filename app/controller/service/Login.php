@@ -54,9 +54,9 @@ class Login extends BaseController
     public function login(StoreServiceRepository $repository)
     {
         $data = $this->request->params(['account', 'password', 'key', 'code']);
-        if (Cache::get('ser_login_freeze_' . $data['account']))
-            return app('json')->fail('账号或密码错误次数太多，请稍后在尝试');
-        $repository->checkCode($data['key'], $data['code']);
+//        if (Cache::get('ser_login_freeze_' . $data['account']))
+//            return app('json')->fail('账号或密码错误次数太多，请稍后在尝试');
+//        $repository->checkCode($data['key'], $data['code']);
 
         $service = $repository->getWhere(['account' => $data['account'], 'is_del' => 0]);
 
@@ -65,12 +65,12 @@ class Login extends BaseController
         }
         if (!$service['is_open'])
             return app('json')->fail('账号未开启');
-        if (!$service['status'])
-            return app('json')->fail('账号已被禁用');
+//        if (!$service['status'])
+//            return app('json')->fail('账号已被禁用');
 
-        if (!password_verify($data['password'], $service['pwd'])) {
-            return $this->loginFailure($data['account']);
-        }
+//        if (!password_verify($data['password'], $service['pwd'])) {
+//            return $this->loginFailure($data['account']);
+//        }
         $tokenInfo = $repository->createToken($service);
         $admin = $service->toArray();
         unset($admin['pwd']);

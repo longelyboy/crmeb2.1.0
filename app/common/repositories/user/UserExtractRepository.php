@@ -16,6 +16,7 @@ use app\common\repositories\BaseRepository;
 use app\common\dao\user\UserExtractDao as dao;
 use app\common\repositories\wechat\WechatUserRepository;
 use crmeb\jobs\SendSmsJob;
+use crmeb\services\MiniProgramService;
 use crmeb\services\SwooleTaskService;
 use crmeb\services\WechatService;
 use think\exception\ValidateException;
@@ -141,24 +142,33 @@ class UserExtractRepository extends BaseRepository
         $brokerage_price = 0;
         if($data['status'] == -1)
             $brokerage_price = bcadd($user['brokerage_price'] ,$extract['extract_price'],2);
-
+        $type = systemConfig('sys_extension_type');
         $ret = [];
-        if ($data['status'] == 1 && $extract['extract_type'] == 3) {
-            $openid = app()->make(WechatUserRepository::class)->idByOpenId((int)$user['wechat_user_id']);
-            if (!$openid) {
-                $openid = app()->make(WechatUserRepository::class)->idByRoutineId((int)$user['wechat_user_id']);
-            }
-            if (!$openid) throw new ValidateException('非微信用户不支持付款到零钱');
+        $service = null;
+        $func = null;
+        if ($data['status'] == 1 && $extract['extract_type'] == 3 && in_array($type,[1,2])) {
+            $func = $type == 1 ? 'merchantPay' : 'companyPay';
             $ret = [
-                'openid' => $openid,
                 'sn' => $extract['extract_sn'],
-                'price' => $extract['extract_price']
+                'price' => $extract['extract_price'],
+                'mark' => '企业付款给用户:'.$user->nickname,
+                'batch_name' => '企业付款给用户:'.$user->nickname
             ];
+            $openid = app()->make(WechatUserRepository::class)->idByOpenId((int)$user['wechat_user_id']);
+            if ($openid) {
+                $ret['openid'] = $openid;
+                $service = WechatService::create();
+            } else {
+                $routineOpenid = app()->make(WechatUserRepository::class)->idByRoutineId((int)$user['wechat_user_id']);
+                if (!$routineOpenid) throw new ValidateException('非微信用户不支持付款到零钱');
+                $ret['openid'] = $routineOpenid;
+                $service =  MiniProgramService::create();
+            }
         }
 
-        Db::transaction(function()use($id,$data,$ret,$user,$brokerage_price){
+        Db::transaction(function()use($id,$data,$user,$brokerage_price,$ret,$service,$func){
             event('user.extractStatus.before',compact('id','data'));
-            if ($ret) WechatService::create()->merchantPay($ret);
+            if ($ret) $service->{$func}($ret);
             if($brokerage_price){
                 $user->brokerage_price = $brokerage_price;
                 $user->save();

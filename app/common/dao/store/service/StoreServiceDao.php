@@ -163,7 +163,7 @@ class StoreServiceDao extends BaseDao
 
     public function getRandService($merId)
     {
-        $services = StoreService::getDB()->where('mer_id', $merId)->where('is_del', 0)->where('status', 1)->order('status DESC, sort DESC, create_time ASC')
+        $services = StoreService::getDB()->where('mer_id', $merId)->where('is_open',1)->where('is_del', 0)->where('status', 1)->order('status DESC, sort DESC, create_time ASC')
             ->hidden(['is_del'])->select();
         if (!$services || !count($services)) return null;
         if (count($services) === 1) $services[0];
@@ -181,7 +181,7 @@ class StoreServiceDao extends BaseDao
      */
     public function getValidServiceInfo($id)
     {
-        return StoreService::getDB()->where('service_id', $id)->where('status', 1)->where('is_del', 0)->hidden(['is_del'])->find();
+        return StoreService::getDB()->where('service_id', $id)->where('is_open',1)->where('status', 1)->where('is_del', 0)->hidden(['is_del'])->find();
     }
 
     /**

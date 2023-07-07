@@ -75,7 +75,7 @@ class StoreRefundOrder extends BaseController
                 return app('json')->fail('未通过必须填写');
             $data['status'] = $status;
             $data['fail_message'] = $fail_message;
-            $this->repository->refuse($id,$data);
+            $this->repository->refuse($id,$data, $this->service_id);
         }
         return app('json')->success('审核成功');
     }

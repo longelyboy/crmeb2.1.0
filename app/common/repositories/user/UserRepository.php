@@ -1368,6 +1368,10 @@ class UserRepository extends BaseRepository
             app()->make(StoreServiceRepository::class)->getSearch([])->where('uid', $uid)->update(['uid' => 0, 'status' => 0, 'is_open' => 0]);
             $this->getSearch([])->where('spread_uid', $uid)->update(['spread_uid' => 0]);
             $this->delBrokerageTop($uid);
+            //TODO 推广人月榜
+            Cache::zrem('s_top_' . date('Y-m'), $uid);
+            //TODO 推广人周榜
+            Cache::zrem('s_top_' . monday(), $uid);
             app()->make(CommunityRepository::class)->destoryByUid($uid);
         });
     }
@@ -1377,16 +1381,27 @@ class UserRepository extends BaseRepository
         $formData = $this->dao->get($id);
         if (!$formData) throw new ValidateException('数据不存在');
         $form = Elm::createForm(Route::buildUrl('systemUserSvipUpdate', ['id' => $id])->build());
-        $form->setRule([
+        $rule = [
             Elm::switches('is_svip', '付费会员', $formData->is_svip > 0 ? 1 : 0)->activeValue(1)->inactiveValue(0)->inactiveText('关')->activeText('开'),
-            Elm::radio('type', '修改类型', 1)->options([
+        ];
+        if ($formData->is_svip == 3) {
+            $rule[] = Elm::input('is_svip_type', '会员类型','永久会员')->disabled(true)->appendRule('suffix', [
+                'type' => 'div',
+                'style' => ['color' => '#999999'],
+                'domProps' => [
+                    'innerHTML' =>'永久会员，若关闭后再次开启将不再是永久会员，请谨慎操作',
+                ]
+            ]);
+        } else {
+            $rule[] = Elm::radio('type', '修改类型', 1)->options([
                 ['label' => '增加', 'value' => 1],
                 ['label' => '减少', 'value' => 0],
-            ])->requiredNum(),
-            Elm::number('add_time', '付费会员期限（天）')->required()->min(1),
-            Elm::input('end_time', '当前有效期期限', $formData->is_svip > 0 ? $formData->svip_endtime : 0)->disabled(true),
-        ]);
-        return $form->setTitle( '编辑付费会员期限' );
+            ])->requiredNum();
+            $rule[] = Elm::number('add_time', '会员期限（天）')->required()->min(1);
+            $rule[] = Elm::input('end_time', '当前有效期期限', $formData->is_svip > 0 ? $formData->svip_endtime : 0)->disabled(true);
+        }
+        $form->setRule($rule);
+        return $form->setTitle( '编辑付费会员期限');
     }
 
     /**
@@ -1421,7 +1436,7 @@ class UserRepository extends BaseRepository
         $res = [
             'title'     => $data['is_svip'] == 0 ? '平台取消会员资格' : ($data['type'] ? '平台赠送' : '平台扣除'),
             'link_id'   => 0,
-            'order_sn'  => $make->setOrderSn(),
+            'order_sn'  =>  app()->make(StoreOrderRepository::class)->getNewOrderId(StoreOrderRepository::TYPE_SN_USER_ORDER),
             'pay_price' => 0,
             'order_info' => json_encode($data,JSON_UNESCAPED_UNICODE),
             'uid'        => $id,

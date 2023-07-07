@@ -128,17 +128,17 @@ class StoreCouponDao extends BaseDao
                     $query->where('C.type', $where['type']);
                 }
             })
-            ->when(isset($where['send_type']) && $where['send_type'] != '', function($query) use($where){
+            ->when(isset($where['send_type']) && $where['send_type'] !== '', function($query) use($where){
                 $query->where('C.send_type', $where['send_type']);
             })
-            ->when(isset($where['not_svip']) && $where['not_svip'] != '', function($query) use($where){
+            ->when(isset($where['not_svip']) && $where['not_svip'] !== '', function($query) use($where){
                 $query->where('C.send_type', '<>',StoreCouponRepository::GET_COUPON_TYPE_SVIP);
             })
             ->when($uid, function($query) use($uid){
                 $couponId = StoreCouponUser::where('uid',$uid)->whereIn('status',[1,2])->column('coupon_id');
                 $query->whereNotIn('C.coupon_id', $couponId);
             })
-            ->when(isset($where['mer_id']) && $where['mer_id'] != '', function($query) use($where){
+            ->when(isset($where['mer_id']) && $where['mer_id'] !== '', function($query) use($where){
                 $query->where('C.mer_id', $where['mer_id']);
             })
             ->where(function (BaseQuery $query) {

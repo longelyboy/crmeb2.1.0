@@ -44,14 +44,13 @@ class UserRelation extends BaseController
         $params = $this->request->params(['type_id', 'type']);
         $params['uid'] = $this->request->uid();
         if (!$params['type_id'])
-            return app('json')->fail('参数丢失');
+            return app('json')->fail('请选择'. ($params['type'] == 1 ? '商品' : '商户'));
         if (!in_array($params['type'], [0,1,2,3,4,10]))
             return app('json')->fail('参数错误');
         if (!$this->repository->fieldExists($params))
             return app('json')->fail('数据不存在');
         if ($this->repository->getUserRelation($params,$this->request->uid()))
             return app('json')->fail('您已经关注过了');
-        $params['uid'] = $this->request->uid();
         $this->repository->create($params);
         return app('json')->success('关注成功');
     }
@@ -84,13 +83,12 @@ class UserRelation extends BaseController
      * @author Qinii
      * @day 7/12/21
      */
-    public function lstDelete()
+    public function batchDelete()
     {
-        $params = $this->request->params(['type_id','type']);
-        $params['uid'] = $this->request->uid();
-        if(!$this->repository->getWhere($params))
-            return app('json')->fail('信息不存在');
-        $this->repository->destory($params,1);
+        $ids = $this->request->param('type_id');
+        $type = $this->request->param('type',1);
+        if(empty($ids))  return app('json')->fail('请选择'. ($type == 1 ? '商品' : '商户'));
+        $this->repository->batchDestory($ids,$this->request->uid(),$type);
         return app('json')->success('已取消关注');
     }
 
@@ -105,7 +103,7 @@ class UserRelation extends BaseController
         $params = $this->request->params(['type_id','type']);
         if (!$this->repository->getUserRelation($params,$this->request->uid()))
             return app('json')->fail('信息不存在');
-        $this->repository->destory($params);
+        $rest = $this->repository->batchDestory([$params['type_id']],$this->request->uid(),$params['type']);
         return app('json')->success('已取消关注');
     }
 
@@ -121,4 +119,5 @@ class UserRelation extends BaseController
         $this->repository->batchCreate($this->request->uid(),$params);
         return app('json')->success('收藏成功');
     }
+
 }

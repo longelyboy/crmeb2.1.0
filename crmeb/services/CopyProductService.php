@@ -537,7 +537,6 @@ class CopyProductService
         $header[] = ['title' => '体积(m³)', 'slot' => 'volume', 'align' => 'center', 'minWidth' => 95];
         $header[] = ['title' => '操作', 'slot' => 'action', 'align' => 'center', 'minWidth' => 70];
         $info = ['attr' => $attr, 'value' => $valueNew, 'header' => $header];
-       // halt($info);
         return $info;
     }
 }

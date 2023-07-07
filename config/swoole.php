@@ -74,7 +74,7 @@ return [
     'hot_update' => [
         'enable'  => env('APP_DEBUG', false),
         'name'    => ['*.php'],
-        'include' => [app_path(),root_path().'crmeb',root_path().'route'],
+        'include' => [app_path(),root_path().'crmeb'],
         'exclude' => [],
     ],
     //连接池

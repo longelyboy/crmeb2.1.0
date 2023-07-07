@@ -43,9 +43,22 @@ class StoreOrderStatusDao extends BaseDao
      * @author xaboy
      * @day 2020/6/12
      */
-    public function search($id)
+    public function search($where)
     {
-        return $query = ($this->getModel()::getDB())->where('order_id', $id);
+        $query = ($this->getModel()::getDB())
+            ->when(isset($where['id']) && $where['id'] !== '', function($query) use($where){
+                $query->where('order_id', $where['id']);
+            })
+            ->when(isset($where['type']) && $where['type'] !== '', function($query) use($where){
+                $query->where('type', $where['type']);
+            })
+            ->when(isset($where['user_type']) && $where['user_type'] !== '', function($query) use($where){
+                $query->where('user_type', $where['user_type']);
+            })
+            ->when(isset($where['date']) && $where['date'] !== '', function($query) use($where){
+                getModelTime($query, $where['date'],'change_time');
+            });
+        return $query;
     }
 
     public function getTimeoutDeliveryOrder($end)

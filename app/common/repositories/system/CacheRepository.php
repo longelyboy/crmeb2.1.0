@@ -212,7 +212,6 @@ HTML;
     {
         return [];
         $re = (Cache::get('AAAAAA'));
-        //halt($re);
         unset($re['省市编码']);
         if (!$re) throw new ValidateException('无数据');
         $shen = [];

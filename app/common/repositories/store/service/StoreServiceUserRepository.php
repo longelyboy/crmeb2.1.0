@@ -100,9 +100,10 @@ class StoreServiceUserRepository extends BaseRepository
     public function merUserList($merId, $uid, $page, $limit)
     {
         $service = app()->make(StoreServiceRepository::class)->getService($uid, $merId);
-        if (!$service || !$service['status'])
+        if (!$service)
             throw new ValidateException('没有权限');
-
+        if (!$service['status'])
+            throw new ValidateException('客服已离线，清开启客服状态');
         return $this->serviceUserList(['service_id' => $service->service_id], $merId, $page, $limit);
 
     }
@@ -111,13 +112,19 @@ class StoreServiceUserRepository extends BaseRepository
     {
         $query = $this->dao->search($where)->group('uid')->order('last_time DESC');
         $count = $query->count();
-        $list = $query->page($page, $limit)->with(['user' => function ($query) {
-            $query->field('uid,avatar,nickname,user_type,sex,is_promoter,phone,now_money,phone,birthday,spread_uid')->with(['spread' => function ($query) {
-                $query->field('uid,avatar,nickname,cancel_time');
-            }]);
-        }, 'mark' => function ($query) use ($merId) {
-            $query->where('mer_id', $merId)->bind(['mark' => 'extend_value']);
-        }, 'last'])->setOption('field', [])->field('*,max(last_log_id) as last_log_id,sum(service_unread) as num')->select()->toArray();
+        $list = $query->page($page, $limit)->with([
+            'user' => function ($query) {
+                $query->field('uid,avatar,nickname,user_type,sex,is_promoter,phone,now_money,phone,birthday,spread_uid')->with([
+                    'spread' => function ($query) {
+                        $query->field('uid,avatar,nickname,cancel_time');
+                    }
+                ]);
+            },
+            'mark' => function ($query) use ($merId) {
+                $query->where('mer_id', $merId)->bind(['mark' => 'extend_value']);
+            },
+            'last'
+        ])->setOption('field', [])->field('*,max(last_log_id) as last_log_id,sum(service_unread) as num')->select()->toArray();
         if (count($list) && is_null($list[0]['service_user_id'])) {
             $list = [];
         }

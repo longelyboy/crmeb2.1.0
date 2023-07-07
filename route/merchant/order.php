@@ -102,7 +102,9 @@ Route::group(function () {
         Route::post('delete/:id', 'Order/delete')->name('merchantStoreOrderDelete')->option([
             '_alias' => '删除',
         ]);
-
+         Route::get('children/:id', 'Order/childrenList')->name('merchantStoreOrderChildrenList')->option([
+             '_alias' => '关联订单',
+         ]);
     })->prefix('merchant.store.order.')->option([
         '_path' => '/order/list',
         '_auth' => true,
@@ -119,7 +121,6 @@ Route::group(function () {
                 '_alias' => '导出下载',
                 '_auth'  => true,
             ],
-
         ]
     ]);
 

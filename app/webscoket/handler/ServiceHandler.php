@@ -87,14 +87,12 @@ class ServiceHandler
         }
         if ('service' != $payload->jti[1])
             return app('json')->message('err_tip', '登录过期');
-
         $service = $repository->get($payload->jti[0]);
 
         if (!$service)
             return app('json')->message('err_tip', '账号不存在');
-        if (!$service['is_open'] || !$service['status'])
+        if (!$service['is_open'])
             return app('json')->message('err_tip', '账号已被禁用');
-
         $this->switchServiceChat($service->uid, $data['fd'], 0, 0);
         return app('json')->success(['uid' => $service->uid, 'payload' => [$service->service_id], 'data' => $service->toArray()]);
     }

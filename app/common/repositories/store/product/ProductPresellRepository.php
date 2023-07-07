@@ -17,6 +17,7 @@ use app\common\model\store\product\ProductLabel;
 use app\common\repositories\BaseRepository;
 use app\common\repositories\store\order\StoreOrderProductRepository;
 use app\common\repositories\store\order\StoreOrderRepository;
+use crmeb\jobs\ChangeSpuStatusJob;
 use crmeb\services\SwooleTaskService;
 use think\exception\ValidateException;
 use think\facade\Db;
@@ -503,7 +504,6 @@ class ProductPresellRepository extends BaseRepository
                 $item->product->product_type = 0;
                 $item->product->save();
                 queue(ChangeSpuStatusJob::class, ['id' => $item->product_presell_id, 'product_type' => 2]);
-               // app()->make(SpuRepository::class)->changeStatus($item->product_presell_id, 2);
             }
         });
     }

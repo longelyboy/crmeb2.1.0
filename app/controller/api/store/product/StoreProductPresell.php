@@ -51,7 +51,7 @@ class StoreProductPresell extends BaseController
     public function getAgree()
     {
         $make = app()->make(CacheRepository::class);
-        return app('json')->success(['sys_product_presell_agree' => $make->getResult('sys_product_presell_agree')]);
+        return app('json')->success($make->getResult('sys_product_presell_agree'));
     }
 
 }
